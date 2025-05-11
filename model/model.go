@@ -3,5 +3,6 @@ package model
 import "context"
 
 type Model interface {
-	Generate(ctx context.Context, messages []Message) (Message, error)
+	// Request model to generate a [Message] given m
+	Generate(ctx context.Context, m []Message) (Message, error)
 }
