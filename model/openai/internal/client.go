@@ -1,20 +1,25 @@
 package internal
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // Represent the underlying client that
 // communicate with OpenAI services
 type Client struct {
 	ApiKey       string
+	Model        string
 	organization string
 	projectId    string
-	client       *http.Client
+	httpClient   *http.Client
+	baseUrl      string
 }
 
 func NewClient(apiKey string, opts ...ClientOptions) (*Client, error) {
 	// Default client options
 	client := &Client{
-		client: http.DefaultClient,
+		httpClient: http.DefaultClient,
+		baseUrl:    defaultBaseURL,
 	}
 	// Overrides
 	for _, option := range opts {
@@ -26,9 +31,9 @@ func NewClient(apiKey string, opts ...ClientOptions) (*Client, error) {
 // OpenAI ChatCompletion API
 //
 // https://platform.openai.com/docs/api-reference/chat
-func ChatCompletion(prompt string) (string, error) {
+func (c *Client) ChatCompletion(prompt string) (ChatCompletionResponse, error) {
 	// TODO
-	return "", nil
+	return ChatCompletionResponse{}, nil
 }
 
 // OpenAI Completion API
@@ -36,14 +41,18 @@ func ChatCompletion(prompt string) (string, error) {
 // Deprecated: This API has been flagged as Legacy by OpenAI
 //
 // See: https://platform.openai.com/docs/api-reference/completions
-func Completion(prompt string) (string, error) {
-	// TODO
-	return "", nil
+func (c *Client) Completion(prompt string) (string, error) {
+	// Fallback to ChatCompletion implementation
+	response, err := c.ChatCompletion(prompt)
+	if err != nil {
+
+	}
+	return response.Choices[0].Message.Content, nil
 }
 
 // OpenAI Responses API
 //
 // https://platform.openai.com/docs/api-reference/responses
-func Response() {
+func (c *Client) Response() {
 	// TODO
 }
