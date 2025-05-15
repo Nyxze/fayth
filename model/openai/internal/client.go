@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"net/http"
 )
 
@@ -45,7 +46,7 @@ func (c *Client) Completion(prompt string) (string, error) {
 	// Fallback to ChatCompletion implementation
 	response, err := c.ChatCompletion(prompt)
 	if err != nil {
-
+		fmt.Println("Hello", err)
 	}
 	return response.Choices[0].Message.Content, nil
 }
