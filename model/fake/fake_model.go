@@ -19,12 +19,14 @@ func NewModel(name string, resp model.Message) model.Model {
 	}
 }
 
-func (f fakeModel) Generate(ctx context.Context, m []model.Message) (model.Message, error) {
+func (f fakeModel) Generate(ctx context.Context, m []model.Message) (*model.Generation, error) {
 	if len(m) == 0 {
-		return model.Message{}, errors.New("empty message provided")
+		return nil, errors.New("empty message provided")
 	}
 	if f.Response.Contents == nil {
-		return model.Message{}, errors.New("no content set in response")
+		return nil, errors.New("no content set in response")
 	}
-	return f.Response, nil
+	return &model.Generation{
+		Results: []*model.Message{&f.Response},
+	}, nil
 }

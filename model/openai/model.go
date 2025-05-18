@@ -2,10 +2,17 @@ package openai
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"nyxze/fayth/model"
 	"nyxze/fayth/model/openai/internal"
 	"os"
+)
+
+var (
+	ErrNoContentInResponse = errors.New("no content in generation response")
+	ErrModelGen            = errors.New("failed to convert to generation type")
+	ErrInvalidMimeType     = errors.New("invalid mime type on content")
 )
 
 type chatModel struct {
@@ -16,7 +23,7 @@ type chatModel struct {
 var _ model.Model = (*chatModel)(nil)
 
 // Return a New OpenAI [model.Model]
-func New(configs ...ModelOptions) (model.Model, error) {
+func New(configs ...ModelOptions) (*chatModel, error) {
 	// Default options
 	config := &options{
 		ApiKey: os.Getenv(API_KEY_ENV),
@@ -44,8 +51,56 @@ func New(configs ...ModelOptions) (model.Model, error) {
 	}, nil
 }
 
+// Type Alias
+type chatMessage = internal.ChatMessage
+type chatRequest = internal.ChatCompletionRequest
+
 // [model.Model] implementation
-func (o chatModel) Generate(ctx context.Context, messages []model.Message) (model.Message, error) {
-	// use underlying client for performing the request
-	return model.Message{}, nil
+func (o chatModel) Generate(ctx context.Context, messages []model.Message) (*model.Generation, error) {
+
+	// TOOO: Add options call
+	// Apply options call
+
+	// Convert model.Message => ChatMessage
+	chatMsg := make([]*chatMessage, len(messages))
+	for _, m := range messages {
+		msg := &chatMessage{}
+		switch m.Role {
+		case model.User:
+			msg.Role = internal.RoleUser
+		case model.Assistant:
+			msg.Role = internal.RoleAssistant
+		case model.System:
+			msg.Role = internal.RoleDev
+		case model.Tool:
+			msg.Role = internal.RoleTool
+		}
+
+	}
+	request := &chatRequest{
+		Messages: chatMsg,
+	}
+	// Create request for intenal client
+	response, err := o.client.ChatCompletion(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	// Validate response
+	if len(response.Choices) == 0 {
+		return nil, ErrNoContentInResponse
+	}
+
+	gen, err := toModelGeneration(response)
+	if err != nil {
+		return nil, ErrModelGen
+	}
+	return gen, nil
+}
+
+func toModelGeneration(response internal.ChatCompletionResponse) (*model.Generation, error) {
+	gen := &model.Generation{}
+	for _, v := range response.Choices {
+
+	}
+	return gen, nil
 }

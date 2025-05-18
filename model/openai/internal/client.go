@@ -1,7 +1,7 @@
 package internal
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 )
 
@@ -32,9 +32,15 @@ func NewClient(apiKey string, opts ...ClientOptions) (*Client, error) {
 // OpenAI ChatCompletion API
 //
 // https://platform.openai.com/docs/api-reference/chat
-func (c *Client) ChatCompletion(prompt string) (ChatCompletionResponse, error) {
-	// TODO
-	return ChatCompletionResponse{}, nil
+func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest) (response *ChatCompletionResponse, err error) {
+	// Validate request
+	// Create httpRequest
+
+	// Execute
+
+	// Unmarshal Response
+
+	return
 }
 
 // OpenAI Completion API
@@ -42,13 +48,9 @@ func (c *Client) ChatCompletion(prompt string) (ChatCompletionResponse, error) {
 // Deprecated: This API has been flagged as Legacy by OpenAI
 //
 // See: https://platform.openai.com/docs/api-reference/completions
-func (c *Client) Completion(prompt string) (string, error) {
+func (c *Client) Completion(ctx context.Context, prompt string) (string, error) {
 	// Fallback to ChatCompletion implementation
-	response, err := c.ChatCompletion(prompt)
-	if err != nil {
-		fmt.Println("Hello", err)
-	}
-	return response.Choices[0].Message.Content, nil
+	return "", nil
 }
 
 // OpenAI Responses API

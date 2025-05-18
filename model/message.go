@@ -5,12 +5,13 @@ type Role string
 const (
 	User      Role = "user"
 	Assistant Role = "assistant"
+	Tool      Role = "tool"
 	System    Role = "system"
 )
 
 // ContentPart represents a generic content element of a message.
 // Each content type (e.g text, image) implements this interface
-// Mostly used in conjonction with type switch assertion
+// Mostly used with type switch assertion
 type ContentPart interface {
 	// Kind returns the discriminator type of the content part.
 	// Used to distinguish between different content types.
