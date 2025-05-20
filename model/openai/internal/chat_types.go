@@ -2,7 +2,6 @@ package internal
 
 import (
 	"encoding/json"
-	"nyxze/fayth/model"
 )
 
 type Role string
@@ -125,35 +124,37 @@ type ChatCompletionTokensDetails struct {
 //          ### Request ####
 
 type ChatCompletionRequest struct {
-	Messages    []ChatMessageUnion `json:"messages"`
-	Model       string             `json:"model"`
-	Temperature float64            `json:"temperature"`
+	Messages    []ChatMessage `json:"messages"`
+	Model       string        `json:"model"`
+	Temperature float64       `json:"temperature"`
 }
 
 //	### MESSAGES ####
 
 // ChatMessage represents struct used for exchanging with ChatModel
-type ChatMessageUnion struct {
-	Role     Role        `json:"role"`
-	Name     string      `json:"name"`
-	Contents ChatContent `json:"content"`
+type ChatMessage struct {
+	Role         Role   `json:"role"`
+	Name         string `json:"name"`
+	MultiContent []ChatContent
 }
-type ChatContent []model.ContentPart
+type ChatContent struct {
+	Text string
+}
 
-func (c *ChatContent) UnmarshalJSON(data []byte) error {
-	var str string
-	if err := json.Unmarshal(data, &str); err == nil {
-		*c = append(*c, model.TextContent{Text: str})
+func (c *ChatMessage) UnmarshalJSON(data []byte) error {
+	// for avoiding recursion
+	type shadow ChatMessage
+	type root struct {
+		shadow
+		Content string `json:"content"`
 	}
-	// Treat as an array of different object type
+	r := root{}
+	if err := json.Unmarshal(data, &r); err == nil {
+		c.MultiContent = append(c.MultiContent, ChatContent{Text: r.Content})
+	}
 	return nil
 }
 
-// TODO: Benchmark both approch
-func (c *ChatContent) JSON(data []byte) error {
-	return nil
-}
-
-type TextContent struct {
-	ChatContent
+func (c ChatMessage) MarshalJSON() ([]byte, error) {
+	return nil, nil
 }
