@@ -57,50 +57,10 @@ type chatRequest = internal.ChatCompletionRequest
 
 // [model.Model] implementation
 func (o chatModel) Generate(ctx context.Context, messages []model.Message) (*model.Generation, error) {
-
-	// TOOO: Add options call
-	// Apply options call
-
-	// Convert model.Message => ChatMessage
-	chatMsg := make([]*chatMessage, len(messages))
-	for _, m := range messages {
-		msg := &chatMessage{}
-		switch m.Role {
-		case model.User:
-			msg.Role = internal.RoleUser
-		case model.Assistant:
-			msg.Role = internal.RoleAssistant
-		case model.System:
-			msg.Role = internal.RoleDev
-		case model.Tool:
-			msg.Role = internal.RoleTool
-		}
-
-	}
-	request := &chatRequest{
-		Messages: chatMsg,
-	}
-	// Create request for intenal client
-	response, err := o.client.ChatCompletion(ctx, request)
-	if err != nil {
-		return nil, err
-	}
-	// Validate response
-	if len(response.Choices) == 0 {
-		return nil, ErrNoContentInResponse
-	}
-
-	gen, err := toModelGeneration(response)
-	if err != nil {
-		return nil, ErrModelGen
-	}
-	return gen, nil
+	return nil, nil
 }
 
 func toModelGeneration(response internal.ChatCompletionResponse) (*model.Generation, error) {
 	gen := &model.Generation{}
-	for _, v := range response.Choices {
-
-	}
 	return gen, nil
 }

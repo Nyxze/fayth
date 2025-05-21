@@ -30,12 +30,12 @@ func NewClient(apiKey string, opts ...ClientOptions) (*Client, error) {
 }
 
 // OpenAI ChatCompletion API
-//
 // https://platform.openai.com/docs/api-reference/chat
-func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest) (response *ChatCompletionResponse, err error) {
+
+func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest) (resp *ChatCompletionResponse, err error) {
+
 	// Validate request
 	// Create httpRequest
-
 	// Execute
 
 	// Unmarshal Response

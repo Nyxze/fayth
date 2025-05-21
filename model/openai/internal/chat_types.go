@@ -4,17 +4,6 @@ import (
 	"encoding/json"
 )
 
-type Role string
-
-const (
-	RoleSystem    Role = "system"
-	RoleDev       Role = "developer"
-	RoleAssistant Role = "assistant"
-	RoleUser      Role = "user"
-	RoleFunction  Role = "function"
-	RoleTool      Role = "tool"
-)
-
 // Generated from https://platform.openai.com/docs/api-reference/chat/object
 
 // ######## RESPONSE #############
@@ -125,7 +114,7 @@ type ChatCompletionTokensDetails struct {
 
 type ChatCompletionRequest struct {
 	Messages    []ChatMessage `json:"messages"`
-	Model       string        `json:"model"`
+	Model       ChatModel     `json:"model"`
 	Temperature float64       `json:"temperature"`
 }
 
@@ -133,28 +122,47 @@ type ChatCompletionRequest struct {
 
 // ChatMessage represents struct used for exchanging with ChatModel
 type ChatMessage struct {
-	Role         Role   `json:"role"`
-	Name         string `json:"name"`
-	MultiContent []ChatContent
+	Role     Role   `json:"role"`
+	Name     string `json:"name"`
+	Contents []ChatContent
 }
+
+// Represent any kind of content that ChatCompletion can produce
+// Field to read depend of the Type fied (e.g: Text field for type of "Text")
 type ChatContent struct {
+	Type ContentType
 	Text string
 }
 
 func (c *ChatMessage) UnmarshalJSON(data []byte) error {
-	// for avoiding recursion
+	// avoiding recursion
 	type shadow ChatMessage
-	type root struct {
+	type simple struct {
 		shadow
-		Content string `json:"content"`
+		StringData string `json:"content"`
 	}
-	r := root{}
+	r := simple{}
 	if err := json.Unmarshal(data, &r); err == nil {
-		c.MultiContent = append(c.MultiContent, ChatContent{Text: r.Content})
+		*c = ChatMessage(r.shadow)
+		c.Contents = append(c.Contents, ChatContent{
+			Type: TEXT,
+			Text: r.StringData})
+		return nil
 	}
-	return nil
+	type multi struct {
+		shadow
+		MultiContents []ChatContent `json:"content"`
+	}
+	mul := multi{}
+	err := json.Unmarshal(data, &mul)
+	if err == nil {
+		*c = ChatMessage(mul.shadow)
+		c.Contents = mul.MultiContents
+	}
+	return err
 }
 
 func (c ChatMessage) MarshalJSON() ([]byte, error) {
+
 	return nil, nil
 }
