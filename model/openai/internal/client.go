@@ -1,61 +1,39 @@
 package internal
 
 import (
-	"context"
-	"net/http"
+	"os"
 )
 
 // Represent the underlying client that
 // communicate with OpenAI services
+// Aggregate all OpenAI service in a single client
+// Each subclients correspond to a given service, rather than providing all operations on a single client.
+// See github.com/openai/openai-go for references
 type Client struct {
-	ApiKey       string
-	Model        string
-	organization string
-	projectId    string
-	httpClient   *http.Client
-	baseUrl      string
+	Options []CallOption
+	Chat    ChatService
 }
 
-func NewClient(apiKey string, opts ...ClientOptions) (*Client, error) {
-	// Default client options
-	client := &Client{
-		httpClient: http.DefaultClient,
-		baseUrl:    defaultBaseURL,
-	}
-	// Overrides
-	for _, option := range opts {
-		option(client)
-	}
-	return client, nil
-}
-
-// OpenAI ChatCompletion API
-// https://platform.openai.com/docs/api-reference/chat
-
-func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest) (resp *ChatCompletionResponse, err error) {
-
-	// Validate request
-	// Create httpRequest
-	// Execute
-
-	// Unmarshal Response
-
+func NewClient(opts ...CallOption) (c Client) {
+	opts = append(DefaultClientOptions(), opts...)
+	c.Chat = NewChatService(opts...)
 	return
 }
 
-// OpenAI Completion API
-//
-// Deprecated: This API has been flagged as Legacy by OpenAI
-//
-// See: https://platform.openai.com/docs/api-reference/completions
-func (c *Client) Completion(ctx context.Context, prompt string) (string, error) {
-	// Fallback to ChatCompletion implementation
-	return "", nil
-}
-
-// OpenAI Responses API
-//
-// https://platform.openai.com/docs/api-reference/responses
-func (c *Client) Response() {
-	// TODO
+// Set
+func DefaultClientOptions() []CallOption {
+	defaults := []CallOption{}
+	if o, ok := os.LookupEnv(BASE_URL_ENV); ok {
+		defaults = append(defaults, WithBaseURL(o))
+	}
+	if o, ok := os.LookupEnv(API_KEY_ENV); ok {
+		defaults = append(defaults, WithAPIKey(o))
+	}
+	if o, ok := os.LookupEnv(ORG_ID_ENV); ok {
+		defaults = append(defaults, WithOrganization(o))
+	}
+	if o, ok := os.LookupEnv(PROJECT_ID_ENV); ok {
+		defaults = append(defaults, WithProject(o))
+	}
+	return defaults
 }

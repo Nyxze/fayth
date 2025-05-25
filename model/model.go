@@ -6,5 +6,5 @@ type Generation struct {
 	Results []*Message
 }
 type Model interface {
-	Generate(ctx context.Context, m []Message) (*Generation, error)
+	Generate(ctx context.Context, m []Message, opts ...ModelOption) (*Generation, error)
 }

@@ -1,8 +1,7 @@
-package internal_test
+package internal
 
 import (
 	"encoding/json"
-	"nyxze/fayth/model/openai/internal"
 	"testing"
 )
 
@@ -31,14 +30,14 @@ func TestMultiPartContent(t *testing.T) {
     ]
 }
 `
-	var msg internal.ChatCompletionRequest
+	var msg ChatCompletionRequest
 	err := json.Unmarshal([]byte(jsonSample), &msg)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal JSON into ChatCompletionRequest: %v", err)
 	}
 
 	// Check model
-	if msg.Model != internal.ChatModelGPT4o {
+	if msg.Model != ChatModelGPT4o {
 		t.Errorf("Invalid model name. Got: %v, Expected: %v", msg.Model, "gpt-4.1")
 	}
 
@@ -49,7 +48,7 @@ func TestMultiPartContent(t *testing.T) {
 
 	// Check first message (simple string)
 	m0 := msg.Messages[0]
-	if m0.Role != internal.RoleDev {
+	if m0.Role != RoleDev {
 		t.Errorf("Expected role 'developer', got %v", m0.Role)
 	}
 	if len(m0.Contents) != 1 {
@@ -60,7 +59,7 @@ func TestMultiPartContent(t *testing.T) {
 
 	// Check second message (multi content)
 	m1 := msg.Messages[1]
-	if m1.Role != internal.RoleUser {
+	if m1.Role != RoleUser {
 		t.Errorf("Expected role 'user', got %v", m1.Role)
 	}
 	if len(m1.Contents) != 2 {
@@ -68,7 +67,7 @@ func TestMultiPartContent(t *testing.T) {
 	}
 	expected := []string{"Hello", "How are you?"}
 	for i, content := range m1.Contents {
-		if content.Type != internal.TEXT {
+		if content.Type != TEXT {
 			t.Errorf("Expected type 'text' at index %d, got %v", i, content.Type)
 		}
 		if content.Text != expected[i] {

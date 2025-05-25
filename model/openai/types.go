@@ -19,10 +19,5 @@ var InternalRoleMap = map[internal.Role]model.Role{
 var RoleMap = map[model.Role]internal.Role{}
 
 const (
-	API_KEY_ENV    = "OPENAI_API_KEY" //nolint:gosec
-	MODEL_NAME_ENV = "OPENAI_MODEL"   //nolint:gosec
-)
-
-const (
 	defaultChatModel = "gpt-3.5-turbo"
 )

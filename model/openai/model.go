@@ -3,10 +3,8 @@ package openai
 import (
 	"context"
 	"errors"
-	"fmt"
 	"nyxze/fayth/model"
 	"nyxze/fayth/model/openai/internal"
-	"os"
 )
 
 var (
@@ -15,52 +13,72 @@ var (
 	ErrInvalidMimeType     = errors.New("invalid mime type on content")
 )
 
-type chatModel struct {
-	client *internal.Client
-}
-
-// Compile type interface assertion
-var _ model.Model = (*chatModel)(nil)
-
-// Return a New OpenAI [model.Model]
-func New(configs ...ModelOptions) (*chatModel, error) {
-	// Default options
-	config := &options{
-		ApiKey: os.Getenv(API_KEY_ENV),
-		Model:  os.Getenv(MODEL_NAME_ENV),
-	}
-
-	// Apply overrides
-	for _, conf := range configs {
-		conf(config)
-	}
-
-	// Validate config
-	if config.ApiKey == "" {
-		return nil, fmt.Errorf("missing API key")
-	}
-	if config.Model == "" {
-		return nil, fmt.Errorf("missing model")
-	}
-	client, err := internal.NewClient(config.ApiKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to creae openai client %v", err)
-	}
-	return &chatModel{
-		client: client,
-	}, nil
-}
-
 // Type Alias
 type chatMessage = internal.ChatMessage
 type chatRequest = internal.ChatCompletionRequest
 
-// [model.Model] implementation
-func (o chatModel) Generate(ctx context.Context, messages []model.Message) (*model.Generation, error) {
-	return nil, nil
+// Use an underlying [openai.Client] for doing inference
+type llm struct {
+	client *internal.Client
 }
 
-func toModelGeneration(response internal.ChatCompletionResponse) (*model.Generation, error) {
+// Compile type interface assertion
+var _ model.Model = (*llm)(nil)
+
+// Return a New OpenAI [model.Model]
+func New(opts ...Option) (*llm, error) {
+
+	client, err := newClient(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &llm{
+		client: client,
+	}, nil
+}
+
+func newClient(opts ...Option) (*internal.Client, error) {
+
+	options := options{}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	// Set Client layer options
+	callOpt := func(c *internal.CallConfig) error {
+		callOpts := []internal.CallOption{}
+		if options.apikey != "" {
+			callOpts = append(callOpts, internal.WithAPIKey(options.apikey))
+		}
+		if options.baseURL != "" {
+			callOpts = append(callOpts, internal.WithBaseURL(options.baseURL))
+		}
+		if options.organization != "" {
+			callOpts = append(callOpts, internal.WithOrganization(options.organization))
+		}
+		return nil
+	}
+
+	client := internal.NewClient(callOpt)
+	return &client, nil
+}
+
+// [model.Model] implementation
+func (o llm) Generate(ctx context.Context, messages []model.Message, opts ...model.ModelOption) (*model.Generation, error) {
+
+	// Create request
+	req := internal.ChatCompletionRequest{}
+
+	resp, err := o.client.Chat.Completion(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to Generation
+	return toModelGeneration(resp)
+}
+
+func toModelGeneration(response *internal.ChatCompletionResponse) (*model.Generation, error) {
 	gen := &model.Generation{}
 	return gen, nil
 }

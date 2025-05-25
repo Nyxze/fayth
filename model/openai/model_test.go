@@ -1,8 +1,10 @@
-package openai_test
+package openai
 
 import (
+	"context"
+	"fmt"
 	"nyxze/fayth/model"
-	"nyxze/fayth/model/openai"
+	"nyxze/fayth/model/openai/internal"
 	"testing"
 )
 
@@ -16,23 +18,23 @@ func TestNewModel(t *testing.T) {
 			// Don't set model from env or options
 			Func: func(innerT *testing.T) (model.Model, error) {
 				innerT.Helper()
-				return openai.New(openai.WithModel("fake-model"))
+				return New()
 			},
 			ShouldFail: true,
 		},
 		"Uses API key from environment": {
 			Func: func(inner *testing.T) (model.Model, error) {
 				inner.Helper()
-				inner.Setenv(openai.API_KEY_ENV, "fake-key")
-				return openai.New(openai.WithModel("fake-model"))
+				inner.Setenv(internal.API_KEY_ENV, "fake-key")
+				return New()
 			},
 			ShouldFail: false,
 		},
 		"Uses model name from environment": {
 			Func: func(inner *testing.T) (model.Model, error) {
 				inner.Helper()
-				inner.Setenv(openai.MODEL_NAME_ENV, "fake-model")
-				return openai.New(openai.WithAPIKey("Fake-key"))
+				inner.Setenv(internal.MODEL_NAME_ENV, "fake-model")
+				return New(WithAPIKey("Fake-key"))
 			},
 			ShouldFail: false,
 		},
@@ -41,24 +43,23 @@ func TestNewModel(t *testing.T) {
 			Func: func(inner *testing.T) (model.Model, error) {
 				// Don't set key from env or options
 				inner.Helper()
-				return openai.New(openai.WithAPIKey("fake-key"))
+				return New(WithAPIKey("fake-key"))
 			},
 			ShouldFail: true,
 		},
 		"Passes when both API key and model name are provided explicitly": {
 			Func: func(inner *testing.T) (model.Model, error) {
 				inner.Helper()
-				return openai.New(openai.WithAPIKey("fake-key"),
-					openai.WithModel("model"))
+				return New(WithAPIKey("fake-api"), WithModel("Hello"))
 			},
 			ShouldFail: false,
 		},
 		"Uses both API key and model name from environment": {
 			Func: func(inner *testing.T) (model.Model, error) {
 				inner.Helper()
-				inner.Setenv(openai.API_KEY_ENV, "fake-key")
-				inner.Setenv(openai.MODEL_NAME_ENV, "fake-model")
-				return openai.New()
+				inner.Setenv(internal.API_KEY_ENV, "fake-key")
+				inner.Setenv(internal.MODEL_NAME_ENV, "fake-model")
+				return New()
 			},
 			ShouldFail: false,
 		},
@@ -77,4 +78,19 @@ func TestNewModel(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRoundTrip(t *testing.T) {
+	t.Setenv(internal.MODEL_NAME_ENV, internal.ChatModelGPT4)
+	client, err := New(WithAPIKey("hello"))
+	if err != nil {
+		panic(1)
+	}
+	ctx := context.Background()
+	msg := model.NewTextMessage(model.User, "Hello")
+	resp, err := client.Generate(ctx, []model.Message{msg})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(resp)
 }
