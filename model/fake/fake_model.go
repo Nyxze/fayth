@@ -19,7 +19,7 @@ func NewModel(name string, resp model.Message) model.Model {
 	}
 }
 
-func (f fakeModel) Generate(ctx context.Context, m []model.Message) (*model.Generation, error) {
+func (f fakeModel) Generate(ctx context.Context, m []model.Message, opts ...model.ModelOption) (*model.Generation, error) {
 	if len(m) == 0 {
 		return nil, errors.New("empty message provided")
 	}

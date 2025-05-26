@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"errors"
+
 	"nyxze/fayth/model"
 	"nyxze/fayth/model/openai/internal"
 )
