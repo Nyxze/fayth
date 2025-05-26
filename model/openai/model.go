@@ -27,7 +27,7 @@ type llm struct {
 var _ model.Model = (*llm)(nil)
 
 // Return a New OpenAI [model.Model]
-func New(opts ...Option) (*llm, error) {
+func New(opts ...CallOption) (*llm, error) {
 
 	client, err := newClient(opts...)
 	if err != nil {
@@ -38,33 +38,24 @@ func New(opts ...Option) (*llm, error) {
 	}, nil
 }
 
-func newClient(opts ...Option) (*internal.Client, error) {
+func newClient(opts ...CallOption) (*internal.Client, error) {
+	// Create config with default values
+	options := CallOptions{
+		Model: defaultChatModel,
+	}
 
-	options := options{}
+	// Apply
 	for _, opt := range opts {
-		opt(&options)
+		err := opt(&options)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	// Set Client layer options
-	callOpt := func(c *internal.CallConfig) error {
-		callOpts := []internal.CallOption{}
-		if options.apikey != "" {
-			callOpts = append(callOpts, internal.WithAPIKey(options.apikey))
-		}
-		if options.baseURL != "" {
-			callOpts = append(callOpts, internal.WithBaseURL(options.baseURL))
-		}
-		if options.organization != "" {
-			callOpts = append(callOpts, internal.WithOrganization(options.organization))
-		}
-		return nil
-	}
-
-	client := internal.NewClient(callOpt)
+	client := internal.NewClient(options.internalOpts...)
 	return &client, nil
 }
 
-// [model.Model] implementation
+// Generate implements [model.Model] interface
 func (o llm) Generate(ctx context.Context, messages []model.Message, opts ...model.ModelOption) (*model.Generation, error) {
 
 	// Create request

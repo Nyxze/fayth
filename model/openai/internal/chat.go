@@ -2,8 +2,12 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"nyxze/choco-go"
+	"strings"
 )
 
 type ChatService struct {
@@ -26,15 +30,15 @@ func (c *ChatService) Completion(ctx context.Context, chatRequest ChatCompletion
 
 	// Append method CallOption at the end
 	opts = append(c.Options[:], opts...)
-	path := "chat/completions"
 
 	// Apply config
 	config := &CallConfig{}
 	for i := range opts {
 		opts[i](config)
 	}
+	path := "chat/completions"
 
-	// Create choco request from
+	// Create choco request from ChatCompletionsRequest
 	req, err := choco.NewRequest(ctx, http.MethodPost, path)
 	req.SetBody(nil, choco.ContentTypeAppJSON)
 	if err != nil {
@@ -48,13 +52,38 @@ func (c *ChatService) Completion(ctx context.Context, chatRequest ChatCompletion
 	if err != nil {
 		return nil, err
 	}
-	// Do smthing with resp
-	_ = res
+
+	// Convert API Response to an error
+	if res.StatusCode >= 400 {
+		fmt.Println("RESPONSE STATUS", res.StatusCode)
+		apiError := Error{}
+		err = json.NewDecoder(res.Body).Decode(&apiError)
+		if err != nil {
+			return nil, err
+		}
+		apiError.Request = req.Raw()
+		apiError.Response = res
+		apiError.StatusCode = res.StatusCode
+		return nil, apiError
+	}
 	return nil, nil
 }
-
 func createPipeline(c *CallConfig) (choco.Pipeline, error) {
-	steps := []choco.PipelineOption{}
+	steps := []choco.PipelineStepFunc{}
+	if c.BaseUrl != nil {
+		steps = append(steps, applyBaseUrl(c.BaseUrl))
+	}
+	return choco.NewPipeline(choco.WithStepFuncs(steps...))
+}
 
-	return choco.NewPipeline(steps...)
+func applyBaseUrl(u *url.URL) choco.PipelineStepFunc {
+	return func(req *choco.Request, next choco.RequestHandlerFunc) (*http.Response, error) {
+		raw := req.Raw()
+		var err error
+		raw.URL, err = u.Parse(strings.TrimLeft(raw.URL.String(), "/"))
+		if err != nil {
+			return nil, err
+		}
+		return next(req)
+	}
 }

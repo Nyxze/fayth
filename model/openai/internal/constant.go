@@ -6,6 +6,9 @@ type ResponsesModel = string
 type ChatModel = string
 
 const (
+	API_ENDPOINT = "https://api.openai.com/v1/"
+)
+const (
 	RoleSystem    Role = "system"
 	RoleDev       Role = "developer"
 	RoleAssistant Role = "assistant"

@@ -27,15 +27,19 @@ type CallConfig struct {
 	APIKey       string
 }
 
-const (
-	defaultBaseURL = "https://api.openai.com/v1"
-)
+func (c *CallConfig) IsValid() error {
+
+	if c.APIKey == "" {
+		return ErrMissingToken
+	}
+	return nil
+}
 
 func WithBaseURL(base string) CallOption {
 	return func(cc *CallConfig) error {
 		u, err := url.Parse(base)
 		if err != nil {
-			return fmt.Errorf("call options: WithBaseURL failed to parse url %s\n", err)
+			return fmt.Errorf("call options: WithBaseURL failed to parse url %s", err)
 		}
 		if u.Path != "" && !strings.HasSuffix(u.Path, "/") {
 			u.Path += "/"

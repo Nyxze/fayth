@@ -1,7 +1,12 @@
 package internal
 
 import (
+	"errors"
 	"os"
+)
+
+var (
+	ErrMissingToken = errors.New("missing the OpenAI API key, set it in the OPENAI_API_KEY environment variable")
 )
 
 // Represent the underlying client that
@@ -14,15 +19,15 @@ type Client struct {
 	Chat    ChatService
 }
 
-func NewClient(opts ...CallOption) (c Client) {
+func NewClient(opts ...CallOption) (client Client) {
 	opts = append(DefaultClientOptions(), opts...)
-	c.Chat = NewChatService(opts...)
+	client.Chat = NewChatService(opts...)
 	return
 }
 
-// Set
+// Load all env vars
 func DefaultClientOptions() []CallOption {
-	defaults := []CallOption{}
+	defaults := []CallOption{WithBaseURL(API_ENDPOINT)}
 	if o, ok := os.LookupEnv(BASE_URL_ENV); ok {
 		defaults = append(defaults, WithBaseURL(o))
 	}
