@@ -1,5 +1,10 @@
 package model
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 type Role string
 
 const (
@@ -7,6 +12,10 @@ const (
 	Assistant Role = "assistant"
 	Tool      Role = "tool"
 	System    Role = "system"
+)
+const (
+	TextKind  string = "text"
+	ImageKind string = "image"
 )
 
 // ContentPart represents a generic content element of a message.
@@ -26,17 +35,6 @@ type Message struct {
 	Properties map[string]any
 }
 
-// Return all content TextContent
-func (m Message) Text() []string {
-	var texts []string
-	for _, c := range m.Contents {
-		if t, ok := c.(TextContent); ok {
-			texts = append(texts, t.Text)
-		}
-	}
-	return texts
-}
-
 // Convinient function for creating a new Message with TextContent
 func NewMessage(role Role, contents ...ContentFunc) Message {
 	msg := Message{
@@ -52,13 +50,45 @@ func NewTextMessage(role Role, texts ...string) Message {
 	return NewMessage(role, WithTextContent(texts...))
 }
 
+func (m *Message) UnmarshalJSON(b []byte) error {
+	var schema struct {
+		Role     Role              `json:"role"`
+		Contents []json.RawMessage `json:"contents"`
+	}
+	if err := json.Unmarshal(b, &schema); err != nil {
+		return err
+	}
+	m.Role = schema.Role
+	size := len(schema.Contents)
+	m.Contents = make([]ContentPart, size)
+	for i := range size {
+		cp, err := unmarshalContentPart(schema.Contents[i])
+		if err != nil {
+			return err
+		}
+		m.Contents = append(m.Contents, cp)
+	}
+	return nil
+}
+
+// Return all content TextContent
+func (m Message) Text() []string {
+	var texts []string
+	for _, c := range m.Contents {
+		if t, ok := c.(TextContent); ok {
+			texts = append(texts, t.Text)
+		}
+	}
+	return texts
+}
+
 // Represent plain text content in a message
 type TextContent struct {
 	Text string `json:"text"`
 }
 
 // Kind returns the type of content, which is "text" for TextContent.
-func (TextContent) Kind() string { return "text" }
+func (TextContent) Kind() string { return TextKind }
 
 // Represent image content, either using base64 or form an url
 type ImageContent struct {
@@ -67,15 +97,31 @@ type ImageContent struct {
 	Data       []byte `json:"data"`
 }
 
-type ContentFunc func(*Message)
+func (ImageContent) Kind() string { return ImageKind }
 
-func (ImageContent) Kind() string { return "image" }
+func unmarshalContentPart(data []byte) (ContentPart, error) {
+	var probe struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return nil, err
+	}
 
-// Appends new TextContent to the message's contents
-func WithTextContent(content ...string) ContentFunc {
-	return func(m *Message) {
-		for _, c := range content {
-			m.Contents = append(m.Contents, TextContent{Text: c})
+	// Dispatch given discriminator type
+	switch probe.Type {
+	case TextKind:
+		var t TextContent
+		if err := json.Unmarshal(data, &t); err != nil {
+			return nil, err
 		}
+		return t, nil
+	case ImageKind:
+		var i ImageContent
+		if err := json.Unmarshal(data, &i); err != nil {
+			return nil, err
+		}
+		return i, nil
+	default:
+		return nil, fmt.Errorf("unknown content kind: %s", probe.Type)
 	}
 }
