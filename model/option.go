@@ -11,3 +11,11 @@ func WithModel(model string) ModelOption {
 		mo.Model = model
 	}
 }
+
+func MergeOptions(base ModelOptions, overrides ...ModelOption) ModelOptions {
+	opts := base
+	for _, o := range overrides {
+		o(&opts)
+	}
+	return opts
+}

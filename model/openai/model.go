@@ -8,43 +8,41 @@ import (
 	"nyxze/fayth/model/openai/internal"
 )
 
+// Errors
 var (
 	ErrNoContentInResponse = errors.New("no content in generation response")
 	ErrModelGen            = errors.New("failed to convert to generation type")
 	ErrInvalidMimeType     = errors.New("invalid mime type on content")
 )
 
-// Type Alias
-type chatMessage = internal.ChatMessage
-type chatRequest = internal.ChatCompletionRequest
+// Default options
+var DEFAULT_OPTIONS = model.ModelOptions{
+	Model:       ChatModelGPT4,
+	Temperature: 1,
+}
 
-// Use an underlying [openai.Client] for doing inference
+// Type Alias
+type ChatMessage = internal.ChatMessage
+type ChatRequest = internal.ChatCompletionRequest
+
 type llm struct {
+
+	// Underlying [internal.Client] for inference call
 	client *internal.Client
+
+	// Global options
+	options model.ModelOptions
 }
 
 // Compile type interface assertion
 var _ model.Model = (*llm)(nil)
 
 // Return a New OpenAI [model.Model]
-func New(opts ...CallOption) (*llm, error) {
+func New(opts ...ClientOption) (*llm, error) {
 
-	client, err := newClient(opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &llm{
-		client: client,
-	}, nil
-}
+	options := clientOptions{}
 
-func newClient(opts ...CallOption) (*internal.Client, error) {
-	// Create config with default values
-	options := CallOptions{
-		Model: defaultChatModel,
-	}
-
-	// Apply
+	// Apply options
 	for _, opt := range opts {
 		err := opt(&options)
 		if err != nil {
@@ -52,16 +50,39 @@ func newClient(opts ...CallOption) (*internal.Client, error) {
 		}
 	}
 	client := internal.NewClient(options.internalOpts...)
-	return &client, nil
+
+	model := &llm{
+		client:  &client,
+		options: DEFAULT_OPTIONS,
+	}
+
+	for _, opt := range options.modelOpts {
+		opt(&model.options)
+	}
+	return model, nil
 }
 
 // Generate implements [model.Model] interface
-func (o llm) Generate(ctx context.Context, messages []model.Message, opts ...model.ModelOption) (*model.Generation, error) {
+func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...model.ModelOption) (*model.Generation, error) {
 
-	// Create request
-	req := internal.ChatCompletionRequest{}
+	if len(messages) == 0 {
+		return nil, errors.New("empty messages")
+	}
 
-	resp, err := o.client.Chat.Completion(ctx, req)
+	options := model.MergeOptions(m.options, opts...)
+
+	// Validate
+	if options.Model == "" {
+		return nil, errors.New("no model provided")
+	}
+	// Create request from ModelOptions & Messages
+	req := internal.ChatCompletionRequest{
+		Temperature: options.Temperature,
+		Model:       options.Model,
+		Messages:    toOpenAIMessages(messages),
+	}
+
+	resp, err := m.client.Chat.Completion(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +91,15 @@ func (o llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 	return toModelGeneration(resp)
 }
 
+func (c *llm) String() string {
+	return "OpenAI"
+}
+
 func toModelGeneration(response *internal.ChatCompletionResponse) (*model.Generation, error) {
 	gen := &model.Generation{}
 	return gen, nil
+}
+func toOpenAIMessages(msg []model.Message) []ChatMessage {
+
+	return nil
 }

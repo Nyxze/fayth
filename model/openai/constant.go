@@ -3,6 +3,7 @@ package openai
 type ResponsesModel = string
 type ChatModel = string
 
+// List of Responses model exposed by OpenAI
 const (
 	ResponsesModelO1Pro                        ResponsesModel = "o1-pro"
 	ResponsesModelO1Pro2025_03_19              ResponsesModel = "o1-pro-2025-03-19"
@@ -10,6 +11,7 @@ const (
 	ResponsesModelComputerUsePreview2025_03_11 ResponsesModel = "computer-use-preview-2025-03-11"
 )
 
+// List of Chat model exposed by OpenAI
 const (
 	ChatModelGPT4_1                           ChatModel = "gpt-4.1"
 	ChatModelGPT4_1Mini                       ChatModel = "gpt-4.1-mini"

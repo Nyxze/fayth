@@ -38,15 +38,6 @@ func TestNewModel(t *testing.T) {
 			},
 			ShouldFail: false,
 		},
-
-		"Fails when model name is missing": {
-			Func: func(inner *testing.T) (model.Model, error) {
-				// Don't set key from env or options
-				inner.Helper()
-				return New(WithAPIKey("fake-key"))
-			},
-			ShouldFail: true,
-		},
 		"Passes when both API key and model name are provided explicitly": {
 			Func: func(inner *testing.T) (model.Model, error) {
 				inner.Helper()
@@ -81,7 +72,7 @@ func TestNewModel(t *testing.T) {
 }
 
 func TestRoundTrip(t *testing.T) {
-	t.Setenv(internal.MODEL_NAME_ENV, internal.ChatModelGPT4)
+	t.Setenv(internal.MODEL_NAME_ENV, ChatModelGPT4)
 	client, err := New(WithAPIKey("hello"))
 	if err != nil {
 		panic(1)
