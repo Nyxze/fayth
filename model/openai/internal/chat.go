@@ -2,12 +2,14 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"nyxze/choco-go"
 	"strings"
+)
+
+const (
+	completionsAPI = "chat/completions"
 )
 
 type ChatService struct {
@@ -26,7 +28,7 @@ func NewChatService(opts ...CallOption) ChatService {
 // https://platform.openai.com/docs/api-reference/chat
 // Endpoint
 // https://api.openai.com/v1/chat/completions
-func (c *ChatService) Completion(ctx context.Context, chatRequest ChatCompletionRequest, opts ...CallOption) (resp *ChatCompletionResponse, err error) {
+func (c *ChatService) Completion(ctx context.Context, chatRequest ChatCompletionRequest, opts ...CallOption) (*ChatCompletionResponse, error) {
 
 	// Append method CallOption at the end
 	opts = append(c.Options[:], opts...)
@@ -36,46 +38,66 @@ func (c *ChatService) Completion(ctx context.Context, chatRequest ChatCompletion
 	for i := range opts {
 		opts[i](config)
 	}
-	path := "chat/completions"
+
+	if config.APIKey == "" {
+		return nil, ErrMissingToken
+	}
 
 	// Create choco request from ChatCompletionsRequest
-	req, err := choco.NewRequest(ctx, http.MethodPost, path)
+	req, err := choco.NewRequest(ctx, http.MethodPost, completionsAPI)
+
+	// TODO : Fill body from ChatCompletionRequest
 	req.SetBody(nil, choco.ContentTypeAppJSON)
 	if err != nil {
 		return nil, err
 	}
-	pipeline, err := createPipeline(config)
+	res, err := sendRequest(req, config)
 	if err != nil {
 		return nil, err
 	}
-	res, err := pipeline.Execute(req)
-	if err != nil {
-		return nil, err
-	}
-
 	// Convert API Response to an error
 	if res.StatusCode >= 400 {
-		fmt.Println("RESPONSE STATUS", res.StatusCode)
-		apiError := Error{}
-		err = json.NewDecoder(res.Body).Decode(&apiError)
-		if err != nil {
-			return nil, err
-		}
+		apiError := NewErrorFromResponse(res.Body)
 		apiError.Request = req.Raw()
 		apiError.Response = res
 		apiError.StatusCode = res.StatusCode
 		return nil, apiError
 	}
-	return nil, nil
-}
-func createPipeline(c *CallConfig) (choco.Pipeline, error) {
-	steps := []choco.PipelineStepFunc{}
-	if c.BaseUrl != nil {
-		steps = append(steps, applyBaseUrl(c.BaseUrl))
-	}
-	return choco.NewPipeline(choco.WithStepFuncs(steps...))
+
+	return &ChatCompletionResponse{}, nil
 }
 
+func sendRequest(req *choco.Request, config *CallConfig) (*http.Response, error) {
+
+	funcs := []choco.PipelineStepFunc{
+		applyHeaders(config), // Set Auth
+		applyBaseUrl(config.BaseUrl),
+	}
+	// Apply Config to Pipeline
+	if config.BaseUrl != nil {
+		funcs = append(funcs, applyBaseUrl(config.BaseUrl))
+	}
+
+	steps := choco.WithStepFuncs(funcs...)
+	pipeline, err := choco.NewPipeline(steps)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := pipeline.Execute(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func applyHeaders(config *CallConfig) choco.PipelineStepFunc {
+	return func(req *choco.Request, next choco.RequestHandlerFunc) (*http.Response, error) {
+		req.SetAuthorization(choco.AuthSchemeBearer, config.APIKey)
+		return next(req)
+	}
+}
 func applyBaseUrl(u *url.URL) choco.PipelineStepFunc {
 	return func(req *choco.Request, next choco.RequestHandlerFunc) (*http.Response, error) {
 		raw := req.Raw()

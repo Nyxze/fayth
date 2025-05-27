@@ -37,7 +37,7 @@ func TestMultiPartContent(t *testing.T) {
 	}
 
 	// Check model
-	if msg.Model != ChatModelGPT4o {
+	if msg.Model != "gpt-4o" {
 		t.Errorf("Invalid model name. Got: %v, Expected: %v", msg.Model, "gpt-4.1")
 	}
 

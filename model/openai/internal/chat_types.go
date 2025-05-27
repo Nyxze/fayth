@@ -114,7 +114,7 @@ type ChatCompletionTokensDetails struct {
 
 type ChatCompletionRequest struct {
 	Messages    []ChatMessage `json:"messages"`
-	Model       ChatModel     `json:"model"`
+	Model       string        `json:"model"`
 	Temperature float64       `json:"temperature"`
 }
 
