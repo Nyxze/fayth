@@ -43,30 +43,38 @@ func (c *ChatService) Completion(ctx context.Context, chatRequest ChatCompletion
 		return nil, ErrMissingToken
 	}
 
-	// Create choco request from ChatCompletionsRequest
-	req, err := choco.NewRequest(ctx, http.MethodPost, completionsAPI)
-
-	// TODO : Fill body from ChatCompletionRequest
-	req.SetBody(nil, choco.ContentTypeAppJSON)
+	req, err := newRequest(ctx, http.MethodPost, chatRequest)
 	if err != nil {
 		return nil, err
 	}
+
 	res, err := sendRequest(req, config)
 	if err != nil {
 		return nil, err
 	}
+
 	// Convert API Response to an error
 	if res.StatusCode >= 400 {
-		apiError := NewErrorFromResponse(res.Body)
+		apiError := NewErrorFromResponse(res)
 		apiError.Request = req.Raw()
-		apiError.Response = res
-		apiError.StatusCode = res.StatusCode
 		return nil, apiError
 	}
 
 	return &ChatCompletionResponse{}, nil
 }
 
+func newRequest(ctx context.Context, method string, cReq ChatCompletionRequest) (*choco.Request, error) {
+	// Create choco request from ChatCompletionsRequest
+	req, err := choco.NewRequest(ctx, method, completionsAPI)
+	if err != nil {
+		return nil, err
+	}
+	err = choco.MarshalAsJSON(req, cReq)
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
+}
 func sendRequest(req *choco.Request, config *CallConfig) (*http.Response, error) {
 
 	funcs := []choco.PipelineStepFunc{
