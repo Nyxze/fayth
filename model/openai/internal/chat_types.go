@@ -1,7 +1,10 @@
 package internal
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"nyxze/fayth/model"
 )
 
 // Generated from https://platform.openai.com/docs/api-reference/chat/object
@@ -122,16 +125,13 @@ type ChatCompletionRequest struct {
 
 // ChatMessage represents struct used for exchanging with ChatModel
 type ChatMessage struct {
-	Role     Role   `json:"role"`
-	Name     string `json:"name"`
-	Contents []ChatContent
-}
+	// The role of the messages author
+	Role Role `json:"role"`
+	// An optional name for the participant
+	Name string `json:"name"`
 
-// Represent any kind of content that ChatCompletion can produce
-// Field to read depend of the Type fied (e.g: Text field for type of "Text")
-type ChatContent struct {
-	Type ContentType
-	Text string
+	// Contents of the message
+	Contents []ChatContent `json:"-"`
 }
 
 func (c *ChatMessage) UnmarshalJSON(data []byte) error {
@@ -145,7 +145,7 @@ func (c *ChatMessage) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &r); err == nil {
 		*c = ChatMessage(r.shadow)
 		c.Contents = append(c.Contents, ChatContent{
-			Type: TEXT,
+			Type: TestContent,
 			Text: r.StringData})
 		return nil
 	}
@@ -163,6 +163,94 @@ func (c *ChatMessage) UnmarshalJSON(data []byte) error {
 }
 
 func (c ChatMessage) MarshalJSON() ([]byte, error) {
+	// avoiding recursion
+	type alias ChatMessage
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
 
-	return nil, nil
+	// Simple case
+	if c.isSimpleMessage() {
+		ret := struct {
+			alias
+			Content string `json:"content"`
+		}{
+			alias: alias(c),
+		}
+		err := encoder.Encode(ret)
+		return buffer.Bytes(), err
+	}
+
+	// Multi content
+	return json.Marshal(struct {
+		Role    string
+		Name    string
+		Content []ChatContent
+	}{
+		Role:    c.Role,
+		Name:    c.Name,
+		Content: c.Contents,
+	})
+}
+
+// Represent any kind of content that ChatCompletion can produce
+// Field to read depend of the Type fied (e.g: Text field for type of "Text")
+type ChatContent struct {
+	Type  ContentType `json:"type"`
+	Text  string      `json:"text,omitempty"`
+	Audio struct {
+		Data   string `json:"data"`
+		Format string `json:"format"`
+	} `json:"input_audio,omitzero"`
+	Image struct {
+		Url    string `json:"url"`
+		Detail string `json:"detail"`
+	} `json:"image_url,omitzero"`
+}
+
+func (c ChatContent) MarshalJSON() ([]byte, error) {
+	type base struct {
+		Type ContentType `json:"type"`
+	}
+
+	switch c.Type {
+	case TestContent:
+		return json.Marshal(struct {
+			base
+			Text string `json:"text"`
+		}{
+			base: base{Type: c.Type},
+			Text: c.Text,
+		})
+	default:
+		return nil, fmt.Errorf("unsupported content type: %s", c.Type)
+	}
+}
+
+func (c ChatMessage) isSimpleMessage() bool {
+	return len(c.Contents) == 1 && c.Contents[0].Text == TestContent
+}
+
+// Adapter between model API <=> internal API
+func ToContentPart(contents []ChatContent) []model.ContentPart {
+	parts := make([]model.ContentPart, 0, len(contents))
+	for _, c := range contents {
+		switch c.Type {
+		case TestContent:
+			parts = append(parts, model.TextContent{Text: c.Text})
+		}
+	}
+	return parts
+}
+func ToChatContent(contents []model.ContentPart) []ChatContent {
+	parts := make([]ChatContent, 0, len(contents))
+	for _, c := range contents {
+		switch c.Kind() {
+		case model.TextKind:
+			parts = append(parts, ChatContent{
+				Type: TestContent,
+				Text: c.(model.TextContent).Text,
+			})
+		}
+	}
+	return parts
 }

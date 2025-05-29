@@ -29,13 +29,13 @@ type ContentPart interface {
 
 // Message is the main data structure used to communicate with a model.
 type Message struct {
-	Role       Role
-	Contents   []ContentPart
-	Metadata   map[string]string
-	Properties map[string]any
+	Role       Role              `json:"role"`
+	Contents   []ContentPart     `json:"contents"`
+	Metadata   map[string]string `json:"metadata"`
+	Properties map[string]any    `json:"properties"`
 }
 
-// Convinient function for creating a new Message with TextContent
+// Convinient function for creating a new Message
 func NewMessage(role Role, contents ...ContentFunc) Message {
 	msg := Message{
 		Role: role,
@@ -85,6 +85,16 @@ func (m Message) Text() []string {
 // Represent plain text content in a message
 type TextContent struct {
 	Text string `json:"text"`
+}
+
+func (tc TextContent) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type string
+		Text string
+	}{
+		Type: tc.Kind(),
+		Text: tc.Text,
+	})
 }
 
 // Kind returns the type of content, which is "text" for TextContent.

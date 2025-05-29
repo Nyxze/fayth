@@ -7,12 +7,12 @@ const (
 	API_ENDPOINT = "https://api.openai.com/v1/"
 )
 const (
-	RoleSystem    Role = "system"
-	RoleDev       Role = "developer"
-	RoleAssistant Role = "assistant"
-	RoleUser      Role = "user"
-	RoleFunction  Role = "function"
-	RoleTool      Role = "tool"
+	SystemRole    Role = "system"
+	DevRole       Role = "developer"
+	AssistantRole Role = "assistant"
+	UserRole      Role = "user"
+	FuncRole      Role = "function"
+	ToolRole      Role = "tool"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 )
 
 const (
-	TEXT        ContentType = "text"
-	INPUT_AUDIO ContentType = "input_audio"
-	REFUSLA     ContentType = "refusal"
+	TestContent       ContentType = "text"
+	AudioInputContent ContentType = "input_audio"
+	ResusalContent    ContentType = "refusal"
 )

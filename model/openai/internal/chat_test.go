@@ -5,73 +5,112 @@ import (
 	"testing"
 )
 
-func TestMultiPartContent(t *testing.T) {
-	jsonSample := `
-{
-    "model": "gpt-4o",
-    "messages": [
-        {
-            "role": "developer",
-            "content": "You are a helpful assistant."
-        },
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Hello"
-                },
-                {
-                    "type": "text",
-                    "text": "How are you?"
-                }
-            ]
-        }
-    ]
-}
-`
-	var msg ChatCompletionRequest
-	err := json.Unmarshal([]byte(jsonSample), &msg)
+func TestSimpleMessage_Unmarshal(t *testing.T) {
+	input := `{
+		"model": "gpt-4o",
+		"messages": [{
+			"role": "developer",
+			"content": "You are a helpful assistant."
+		}]
+	}`
+
+	var req ChatCompletionRequest
+	err := json.Unmarshal([]byte(input), &req)
 	if err != nil {
-		t.Fatalf("Failed to unmarshal JSON into ChatCompletionRequest: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
-	// Check model
-	if msg.Model != "gpt-4o" {
-		t.Errorf("Invalid model name. Got: %v, Expected: %v", msg.Model, "gpt-4.1")
+	if req.Model != "gpt-4o" {
+		t.Errorf("Expected model 'gpt-4o', got %q", req.Model)
 	}
 
-	// Check messages count
-	if len(msg.Messages) != 2 {
-		t.Fatalf("Expected 2 messages, got %d", len(msg.Messages))
+	if len(req.Messages) != 1 {
+		t.Fatalf("Expected 1 message, got %d", len(req.Messages))
 	}
 
-	// Check first message (simple string)
-	m0 := msg.Messages[0]
-	if m0.Role != RoleDev {
-		t.Errorf("Expected role 'developer', got %v", m0.Role)
+	msg := req.Messages[0]
+	if msg.Role != DevRole {
+		t.Errorf("Expected role 'developer', got %v", msg.Role)
 	}
-	if len(m0.Contents) != 1 {
-		t.Errorf("Expected 1 content item in first message, got %d", len(m0.Contents))
-	} else if m0.Contents[0].Text != "You are a helpful assistant." {
-		t.Errorf("Unexpected content text: %v", m0.Contents[0].Text)
+	if len(msg.Contents) != 1 || msg.Contents[0].Text != "You are a helpful assistant." {
+		t.Errorf("Unexpected content: %+v", msg.Contents)
+	}
+}
+func TestMultiPartMessage_Unmarshal(t *testing.T) {
+	input := `{
+		"model": "gpt-4o",
+		"messages": [{
+			"role": "user",
+			"content": [
+				{ "type": "text", "text": "Hello" },
+				{ "type": "text", "text": "How are you?" }
+			]
+		}]
+	}`
+
+	var req ChatCompletionRequest
+	err := json.Unmarshal([]byte(input), &req)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
-	// Check second message (multi content)
-	m1 := msg.Messages[1]
-	if m1.Role != RoleUser {
-		t.Errorf("Expected role 'user', got %v", m1.Role)
+	msg := req.Messages[0]
+	if msg.Role != UserRole {
+		t.Errorf("Expected role 'user', got %v", msg.Role)
 	}
-	if len(m1.Contents) != 2 {
-		t.Errorf("Expected 2 content items in second message, got %d", len(m1.Contents))
+
+	if len(msg.Contents) != 2 {
+		t.Errorf("Expected 2 content parts, got %d", len(msg.Contents))
 	}
+
 	expected := []string{"Hello", "How are you?"}
-	for i, content := range m1.Contents {
-		if content.Type != TEXT {
-			t.Errorf("Expected type 'text' at index %d, got %v", i, content.Type)
+	for i, content := range msg.Contents {
+		if content.Type != TestContent {
+			t.Errorf("Expected TEXT at index %d, got %v", i, content.Type)
 		}
 		if content.Text != expected[i] {
 			t.Errorf("Expected text %q at index %d, got %q", expected[i], i, content.Text)
 		}
+	}
+}
+func TestEmptyContent_Unmarshal(t *testing.T) {
+	input := `{
+		"model": "gpt-4o",
+		"messages": [{
+			"role": "user",
+			"content": []
+		}]
+	}`
+
+	var req ChatCompletionRequest
+	err := json.Unmarshal([]byte(input), &req)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if len(req.Messages) != 1 || len(req.Messages[0].Contents) != 0 {
+		t.Errorf("Expected empty content, got %+v", req.Messages[0].Contents)
+	}
+}
+func TestRoundTrip_MarshalUnmarshal(t *testing.T) {
+	original := ChatCompletionRequest{
+		Model: "gpt-4o",
+		Messages: []ChatMessage{
+			{Role: UserRole, Contents: []ChatContent{{Type: TestContent, Text: "Hi"}}},
+		},
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded ChatCompletionRequest
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if decoded.Model != original.Model || len(decoded.Messages) != 1 || decoded.Messages[0].Role != UserRole {
+		t.Errorf("Round trip mismatch: %+v", decoded)
 	}
 }

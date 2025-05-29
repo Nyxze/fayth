@@ -75,11 +75,16 @@ func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 	if options.Model == "" {
 		return nil, errors.New("no model provided")
 	}
+	chatMsg := make([]ChatMessage, len(messages))
+
+	for i := range len(chatMsg) {
+		chatMsg[i] = toOpenAIMessages(messages[i])
+	}
 	// Create request from ModelOptions & Messages
 	req := internal.ChatCompletionRequest{
 		Temperature: options.Temperature,
 		Model:       options.Model,
-		Messages:    toOpenAIMessages(messages),
+		Messages:    chatMsg,
 	}
 
 	resp, err := m.client.Chat.Completion(ctx, req)
@@ -99,7 +104,22 @@ func toModelGeneration(response *internal.ChatCompletionResponse) (*model.Genera
 	gen := &model.Generation{}
 	return gen, nil
 }
-func toOpenAIMessages(msg []model.Message) []ChatMessage {
-
-	return nil
+func toOpenAIMessages(message model.Message) ChatMessage {
+	var chatRole internal.Role
+	// Set roles
+	switch message.Role {
+	case model.User:
+		chatRole = internal.UserRole
+	case model.Assistant:
+		chatRole = internal.AssistantRole
+	case model.System:
+		chatRole = internal.DevRole
+	case model.Tool:
+		chatRole = internal.ToolRole
+	}
+	// Add Name ?
+	return internal.ChatMessage{
+		Role:     chatRole,
+		Contents: internal.ToChatContent(message.Contents),
+	}
 }
