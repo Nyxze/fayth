@@ -60,7 +60,7 @@ func (m *Message) UnmarshalJSON(b []byte) error {
 	}
 	m.Role = schema.Role
 	size := len(schema.Contents)
-	m.Contents = make([]ContentPart, size)
+	m.Contents = make([]ContentPart, 0, size)
 	for i := range size {
 		cp, err := unmarshalContentPart(schema.Contents[i])
 		if err != nil {
