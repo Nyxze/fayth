@@ -84,13 +84,13 @@ func (m Message) Text() []string {
 
 // Represent plain text content in a message
 type TextContent struct {
-	Text string `json:"text"`
+	Text string
 }
 
 func (tc TextContent) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Type string
-		Text string
+		Type string `json:"type"`
+		Text string `json:"text"`
 	}{
 		Type: tc.Kind(),
 		Text: tc.Text,

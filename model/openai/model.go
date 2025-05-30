@@ -115,7 +115,7 @@ func toGeneration(resp *internal.ChatCompletionResponse) (*model.Generation, err
 			role = model.Tool
 		}
 		msg := model.NewTextMessage(role, v.Message.Content)
-		gen.Results = append(gen.Results, msg)
+		gen.Messages = append(gen.Messages, msg)
 	}
 
 	return gen, nil
