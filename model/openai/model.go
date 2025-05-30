@@ -92,16 +92,32 @@ func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 		return nil, err
 	}
 
-	// Convert to Generation
-	return toModelGeneration(resp)
+	return toGeneration(resp)
 }
 
 func (c *llm) String() string {
 	return "OpenAI"
 }
 
-func toModelGeneration(response *internal.ChatCompletionResponse) (*model.Generation, error) {
+func toGeneration(resp *internal.ChatCompletionResponse) (*model.Generation, error) {
 	gen := &model.Generation{}
+	for _, v := range resp.Choices {
+		var role model.Role
+		switch v.Message.Role {
+		case internal.AssistantRole:
+			role = model.Assistant
+		case internal.SystemRole:
+		case internal.DevRole:
+			role = model.System
+		case internal.UserRole:
+			role = model.User
+		case internal.ToolRole:
+			role = model.Tool
+		}
+		msg := model.NewTextMessage(role, v.Message.Content)
+		gen.Results = append(gen.Results, msg)
+	}
+
 	return gen, nil
 }
 func toOpenAIMessages(message model.Message) ChatMessage {

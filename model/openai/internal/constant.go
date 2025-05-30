@@ -24,7 +24,7 @@ const (
 )
 
 const (
-	TestContent       ContentType = "text"
+	TextContent       ContentType = "text"
 	AudioInputContent ContentType = "input_audio"
 	ResusalContent    ContentType = "refusal"
 )

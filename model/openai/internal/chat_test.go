@@ -65,7 +65,7 @@ func TestMultiPartMessage_Unmarshal(t *testing.T) {
 
 	expected := []string{"Hello", "How are you?"}
 	for i, content := range msg.Contents {
-		if content.Type != TestContent {
+		if content.Type != TextContent {
 			t.Errorf("Expected TEXT at index %d, got %v", i, content.Type)
 		}
 		if content.Text != expected[i] {
@@ -96,7 +96,7 @@ func TestRoundTrip_MarshalUnmarshal(t *testing.T) {
 	original := ChatCompletionRequest{
 		Model: "gpt-4o",
 		Messages: []ChatMessage{
-			{Role: UserRole, Contents: []ChatContent{{Type: TestContent, Text: "Hi"}}},
+			{Role: UserRole, Contents: []ChatContent{{Type: TextContent, Text: "Hi"}}},
 		},
 	}
 

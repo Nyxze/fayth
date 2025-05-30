@@ -145,7 +145,7 @@ func (c *ChatMessage) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &r); err == nil {
 		*c = ChatMessage(r.shadow)
 		c.Contents = append(c.Contents, ChatContent{
-			Type: TestContent,
+			Type: TextContent,
 			Text: r.StringData})
 		return nil
 	}
@@ -182,9 +182,9 @@ func (c ChatMessage) MarshalJSON() ([]byte, error) {
 
 	// Multi content
 	return json.Marshal(struct {
-		Role    string
-		Name    string
-		Content []ChatContent
+		Role    string        `json:"role"`
+		Name    string        `json:"name,omitempty"`
+		Content []ChatContent `json:"content"`
 	}{
 		Role:    c.Role,
 		Name:    c.Name,
@@ -213,7 +213,7 @@ func (c ChatContent) MarshalJSON() ([]byte, error) {
 	}
 
 	switch c.Type {
-	case TestContent:
+	case TextContent:
 		return json.Marshal(struct {
 			base
 			Text string `json:"text"`
@@ -227,7 +227,7 @@ func (c ChatContent) MarshalJSON() ([]byte, error) {
 }
 
 func (c ChatMessage) isSimpleMessage() bool {
-	return len(c.Contents) == 1 && c.Contents[0].Text == TestContent
+	return len(c.Contents) == 1 && c.Contents[0].Text == TextContent
 }
 
 // Adapter between model API <=> internal API
@@ -235,7 +235,7 @@ func ToContentPart(contents []ChatContent) []model.ContentPart {
 	parts := make([]model.ContentPart, 0, len(contents))
 	for _, c := range contents {
 		switch c.Type {
-		case TestContent:
+		case TextContent:
 			parts = append(parts, model.TextContent{Text: c.Text})
 		}
 	}
@@ -247,7 +247,7 @@ func ToChatContent(contents []model.ContentPart) []ChatContent {
 		switch c.Kind() {
 		case model.TextKind:
 			parts = append(parts, ChatContent{
-				Type: TestContent,
+				Type: TextContent,
 				Text: c.(model.TextContent).Text,
 			})
 		}
