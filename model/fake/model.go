@@ -44,7 +44,7 @@ func (f fakeModel) Generate(ctx context.Context, m []model.Message, opts ...mode
 	// Handle streaming case
 	if options.StreamHandler != nil {
 		// Get the text content to stream
-		text := f.Response.Text()[0]
+		text := f.Response.Text()
 		var currentContent strings.Builder
 
 		// Stream the content in chunks

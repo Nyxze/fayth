@@ -71,15 +71,14 @@ func (m *Message) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Return all content TextContent
-func (m Message) Text() []string {
-	var texts []string
+// Return all first TextContent
+func (m Message) Text() string {
 	for _, c := range m.Contents {
 		if t, ok := c.(TextContent); ok {
-			texts = append(texts, t.Text)
+			return t.Text
 		}
 	}
-	return texts
+	return ""
 }
 
 // Represent plain text content in a message

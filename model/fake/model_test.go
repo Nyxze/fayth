@@ -134,7 +134,7 @@ func TestFakeModel_Streaming(t *testing.T) {
 					if tt.expectError != nil && tt.expectError.Error() == "handler error" {
 						return tt.expectError
 					}
-					chunks = append(chunks, msg.Text()[0])
+					chunks = append(chunks, msg.Text())
 					return nil
 				}))
 
@@ -162,8 +162,8 @@ func TestFakeModel_Streaming(t *testing.T) {
 			// Verify final message matches input
 			if !tt.cancelContext {
 				finalText := strings.Join(chunks, "")
-				if finalText != tt.input.Text()[0] {
-					t.Errorf("Generate() wrong accumulated text, got %q, want %q", finalText, tt.input.Text()[0])
+				if finalText != tt.input.Text() {
+					t.Errorf("Generate() wrong accumulated text, got %q, want %q", finalText, tt.input.Text())
 				}
 			}
 		})
