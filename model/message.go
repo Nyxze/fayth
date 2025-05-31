@@ -31,8 +31,8 @@ type ContentPart interface {
 type Message struct {
 	Role       Role              `json:"role"`
 	Contents   []ContentPart     `json:"contents"`
-	Metadata   map[string]string `json:"metadata"`
-	Properties map[string]any    `json:"properties"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
+	Properties map[string]any    `json:"properties,omitempty"`
 }
 
 // Convinient function for creating a new Message
@@ -60,7 +60,7 @@ func (m *Message) UnmarshalJSON(b []byte) error {
 	}
 	m.Role = schema.Role
 	size := len(schema.Contents)
-	m.Contents = make([]ContentPart, size)
+	m.Contents = make([]ContentPart, 0, size)
 	for i := range size {
 		cp, err := unmarshalContentPart(schema.Contents[i])
 		if err != nil {
@@ -84,13 +84,13 @@ func (m Message) Text() []string {
 
 // Represent plain text content in a message
 type TextContent struct {
-	Text string `json:"text"`
+	Text string
 }
 
 func (tc TextContent) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Type string
-		Text string
+		Type string `json:"type"`
+		Text string `json:"text"`
 	}{
 		Type: tc.Kind(),
 		Text: tc.Text,

@@ -1,7 +1,10 @@
 package internal
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"nyxze/choco-go"
@@ -60,7 +63,27 @@ func (c *ChatService) Completion(ctx context.Context, chatRequest ChatCompletion
 		return nil, apiError
 	}
 
-	return &ChatCompletionResponse{}, nil
+	var chatResponse ChatCompletionResponse
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = json.NewDecoder(bytes.NewReader(b)).Decode(&chatResponse)
+	if err != nil {
+		return nil, err
+	}
+	return &chatResponse, nil
+}
+
+func newRequest(ctx context.Context, method string, v any) (*choco.Request, error) {
+
+	// Create choco request from ChatCompletionsRequest
+	req, err := choco.NewRequest(ctx, http.MethodPost, completionsAPI)
+	if err != nil {
+		return nil, err
+	}
+	err = choco.MarshalAsJSON(req, v)
+	return req, err
 }
 
 func newRequest(ctx context.Context, method string, cReq ChatCompletionRequest) (*choco.Request, error) {

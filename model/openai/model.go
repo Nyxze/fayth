@@ -71,9 +71,9 @@ func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 
 	options := model.MergeOptions(m.options, opts...)
 
-	// Validate
-	if options.Model == "" {
-		return nil, errors.New("no model provided")
+	// Validate options
+	if err := validateOptions(options); err != nil {
+		return nil, err
 	}
 	chatMsg := make([]ChatMessage, len(messages))
 
@@ -82,9 +82,20 @@ func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 	}
 	// Create request from ModelOptions & Messages
 	req := internal.ChatCompletionRequest{
-		Temperature: options.Temperature,
-		Model:       options.Model,
-		Messages:    chatMsg,
+		Messages:         chatMsg,
+		Model:           options.Model,
+		Temperature:     options.Temperature,
+		TopP:            options.TopP,
+		MaxTokens:       options.MaxTokens,
+		FrequencyPenalty: options.FrequencyPenalty,
+		PresencePenalty: options.PresencePenalty,
+		Stop:            options.Stop,
+		Seed:            options.Seed,
+		User:            options.User,
+		ResponseFormat:  internal.ResponseFormat(options.ResponseFormat),
+		Stream:          options.Stream,
+		LogProbs:        options.LogProbs,
+		TopLogProbs:     options.TopLogProbs,
 	}
 
 	resp, err := m.client.Chat.Completion(ctx, req)
@@ -92,16 +103,33 @@ func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 		return nil, err
 	}
 
-	// Convert to Generation
-	return toModelGeneration(resp)
+	return toGeneration(resp)
 }
 
 func (c *llm) String() string {
 	return "OpenAI"
 }
 
-func toModelGeneration(response *internal.ChatCompletionResponse) (*model.Generation, error) {
+func toGeneration(resp *internal.ChatCompletionResponse) (*model.Generation, error) {
 	gen := &model.Generation{}
+	for _, v := range resp.Choices {
+		var role model.Role
+		switch v.Message.Role {
+		case internal.AssistantRole:
+			role = model.Assistant
+		case internal.SystemRole:
+			role = model.System
+		case internal.DevRole:
+			role = model.System
+		case internal.UserRole:
+			role = model.User
+		case internal.ToolRole:
+			role = model.Tool
+		}
+		msg := model.NewTextMessage(role, v.Message.Content)
+		gen.Messages = append(gen.Messages, msg)
+	}
+
 	return gen, nil
 }
 func toOpenAIMessages(message model.Message) ChatMessage {
@@ -113,7 +141,7 @@ func toOpenAIMessages(message model.Message) ChatMessage {
 	case model.Assistant:
 		chatRole = internal.AssistantRole
 	case model.System:
-		chatRole = internal.DevRole
+		chatRole = internal.SystemRole
 	case model.Tool:
 		chatRole = internal.ToolRole
 	}
@@ -122,4 +150,56 @@ func toOpenAIMessages(message model.Message) ChatMessage {
 		Role:     chatRole,
 		Contents: internal.ToChatContent(message.Contents),
 	}
+}
+
+// validateOptions validates the model options to ensure they're within acceptable ranges
+func validateOptions(options model.ModelOptions) error {
+	// Required fields
+	if options.Model == "" {
+		return errors.New("no model provided")
+	}
+	
+	// Temperature validation (0.0 to 2.0)
+	if options.Temperature < 0.0 || options.Temperature > 2.0 {
+		return errors.New("temperature must be between 0.0 and 2.0")
+	}
+	
+	// TopP validation (0.0 to 1.0) - only validate if non-zero
+	if options.TopP != 0 && (options.TopP < 0.0 || options.TopP > 1.0) {
+		return errors.New("top_p must be between 0.0 and 1.0")
+	}
+	
+	// MaxTokens validation (must be positive if set)
+	if options.MaxTokens != 0 && options.MaxTokens <= 0 {
+		return errors.New("max_tokens must be positive")
+	}
+	
+	// FrequencyPenalty validation (-2.0 to 2.0) - only validate if non-zero
+	if options.FrequencyPenalty != 0 && (options.FrequencyPenalty < -2.0 || options.FrequencyPenalty > 2.0) {
+		return errors.New("frequency_penalty must be between -2.0 and 2.0")
+	}
+	
+	// PresencePenalty validation (-2.0 to 2.0) - only validate if non-zero
+	if options.PresencePenalty != 0 && (options.PresencePenalty < -2.0 || options.PresencePenalty > 2.0) {
+		return errors.New("presence_penalty must be between -2.0 and 2.0")
+	}
+	
+	// TopLogProbs validation (0 to 20) - only validate if non-zero
+	if options.TopLogProbs != 0 && (options.TopLogProbs < 0 || options.TopLogProbs > 20) {
+		return errors.New("top_logprobs must be between 0 and 20")
+	}
+	
+	// ResponseFormat validation - only validate if Type is set
+	if options.ResponseFormat.Type != "" {
+		if options.ResponseFormat.Type != "text" && options.ResponseFormat.Type != "json_object" {
+			return errors.New("response_format type must be 'text' or 'json_object'")
+		}
+	}
+	
+	// Stop sequences validation (max 4 sequences)
+	if len(options.Stop) > 4 {
+		return errors.New("maximum of 4 stop sequences allowed")
+	}
+	
+	return nil
 }

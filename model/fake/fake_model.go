@@ -27,6 +27,6 @@ func (f fakeModel) Generate(ctx context.Context, m []model.Message, opts ...mode
 		return nil, errors.New("no content set in response")
 	}
 	return &model.Generation{
-		Results: []model.Message{f.Response},
+		Messages: []model.Message{f.Response},
 	}, nil
 }
