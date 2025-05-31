@@ -120,28 +120,28 @@ type ChatCompletionRequest struct {
 	// Required fields
 	Messages []ChatMessage `json:"messages"` // List of messages in the conversation
 	Model    string        `json:"model"`    // Model to use for completion
-	
+
 	// Sampling parameters
-	Temperature float64 `json:"temperature,omitzero"`       // Controls randomness (0.0 to 2.0)
-	TopP        float64 `json:"top_p,omitzero"`             // Nucleus sampling parameter (0.0 to 1.0)
-	MaxTokens   int     `json:"max_tokens,omitzero"`        // Maximum tokens to generate
-	
+	Temperature float64 `json:"temperature,omitzero"` // Controls randomness (0.0 to 2.0)
+	TopP        float64 `json:"top_p,omitzero"`       // Nucleus sampling parameter (0.0 to 1.0)
+	MaxTokens   int     `json:"max_tokens,omitzero"`  // Maximum tokens to generate
+
 	// Penalty parameters
 	FrequencyPenalty float64 `json:"frequency_penalty,omitzero"` // Frequency penalty (-2.0 to 2.0)
 	PresencePenalty  float64 `json:"presence_penalty,omitzero"`  // Presence penalty (-2.0 to 2.0)
-	
+
 	// Control parameters
 	Stop []string `json:"stop,omitzero"` // Stop sequences
 	Seed int64    `json:"seed,omitzero"` // Seed for deterministic sampling
 	User string   `json:"user,omitzero"` // User identifier for abuse monitoring
-	
+
 	// Response format
 	ResponseFormat ResponseFormat `json:"response_format,omitzero"` // Response format specification
-	
+
 	// Streaming and logging
-	Stream      bool `json:"stream,omitzero"`        // Enable streaming responses
-	LogProbs    bool `json:"logprobs,omitzero"`      // Include log probabilities
-	TopLogProbs int  `json:"top_logprobs,omitzero"`  // Number of top log probabilities (0-20)
+	Stream      bool `json:"stream,omitzero"`       // Enable streaming responses
+	LogProbs    bool `json:"logprobs,omitzero"`     // Include log probabilities
+	TopLogProbs int  `json:"top_logprobs,omitzero"` // Number of top log probabilities (0-20)
 }
 
 // ResponseFormat specifies the format of the model's output
@@ -281,4 +281,20 @@ func ToChatContent(contents []model.ContentPart) []ChatContent {
 		}
 	}
 	return parts
+}
+
+// ChatCompletionStreamResponse represents a streaming response chunk from the OpenAI API
+type ChatCompletionStreamResponse struct {
+	ID      string                `json:"id"`
+	Object  string                `json:"object"`
+	Created int64                 `json:"created"`
+	Model   string                `json:"model"`
+	Choices []ChatStreamingChoice `json:"choices"`
+}
+
+// ChatStreamingChoice represents a single choice in a streaming response
+type ChatStreamingChoice struct {
+	Index        int                   `json:"index"`
+	Delta        ChatCompletionMessage `json:"delta"`
+	FinishReason string                `json:"finish_reason"`
 }
