@@ -1,51 +1,66 @@
 package model
 
+// StreamMode specifies how streaming responses should be handled
+type StreamMode int
+
+const (
+	// StreamDisabled disables streaming
+	StreamDisabled StreamMode = iota
+
+	// StreamChannel enables streaming via channel
+	StreamChannel
+
+	// StreamReader enables streaming via io.Reader
+	StreamReader
+)
+
 // ModelOptions contains configuration options for model inference
 type ModelOptions struct {
 	// Model specifies which model to use (e.g., "gpt-4", "gpt-3.5-turbo")
 	Model string `json:"model"`
-	
+
 	// Temperature controls randomness in the output (0.0 to 2.0)
 	// Higher values make output more random, lower values more deterministic
 	Temperature float64 `json:"temperature"`
-	
+
 	// MaxTokens sets the maximum number of tokens to generate
 	// If 0, uses the model's default maximum
 	MaxTokens int `json:"max_tokens,omitzero"`
-	
+
 	// TopP controls nucleus sampling (0.0 to 1.0)
 	// Alternative to temperature for controlling randomness
 	TopP float64 `json:"top_p,omitzero"`
-	
+
 	// FrequencyPenalty penalizes frequent tokens (-2.0 to 2.0)
 	// Positive values decrease likelihood of repeating tokens
 	FrequencyPenalty float64 `json:"frequency_penalty,omitzero"`
-	
+
 	// PresencePenalty penalizes tokens that have appeared (-2.0 to 2.0)
 	// Positive values encourage talking about new topics
 	PresencePenalty float64 `json:"presence_penalty,omitzero"`
-	
+
 	// Stop sequences where the model will stop generating
 	Stop []string `json:"stop,omitzero"`
-	
+
 	// Seed for deterministic sampling (if supported by model)
 	Seed int64 `json:"seed,omitzero"`
-	
+
 	// User identifier for abuse monitoring
 	User string `json:"user,omitzero"`
-	
+
 	// ResponseFormat specifies the format of the response
 	// Can be "text" or "json_object" for JSON mode
 	ResponseFormat ResponseFormat `json:"response_format,omitzero"`
-	
-	// Stream enables streaming responses (not yet implemented)
-	Stream bool `json:"stream,omitzero"`
-	
+
 	// LogProbs enables log probabilities in response
 	LogProbs bool `json:"logprobs,omitzero"`
-	
+
 	// TopLogProbs specifies number of top log probabilities to return (0-20)
 	TopLogProbs int `json:"top_logprobs,omitzero"`
+
+	// StreamHandler is called with each message chunk when streaming
+	// If nil, streaming is disabled
+	StreamHandler MessageHandler `json:"-"`
 }
 
 // ResponseFormat specifies the format of the model's output
@@ -73,6 +88,15 @@ func WithTemperature(temp float64) ModelOption {
 func WithMaxTokens(maxTokens int) ModelOption {
 	return func(mo *ModelOptions) {
 		mo.MaxTokens = maxTokens
+	}
+}
+
+// WithStream enables streaming by providing a handler function
+// The handler will be called for each message chunk as it arrives
+// If handler is nil, streaming is disabled
+func WithStream(handler MessageHandler) ModelOption {
+	return func(mo *ModelOptions) {
+		mo.StreamHandler = handler
 	}
 }
 
@@ -129,13 +153,6 @@ func WithJSONMode() ModelOption {
 func WithTextMode() ModelOption {
 	return func(mo *ModelOptions) {
 		mo.ResponseFormat = ResponseFormat{Type: "text"}
-	}
-}
-
-// WithStream enables streaming responses
-func WithStream(stream bool) ModelOption {
-	return func(mo *ModelOptions) {
-		mo.Stream = stream
 	}
 }
 
