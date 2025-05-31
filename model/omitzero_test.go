@@ -11,20 +11,20 @@ func TestOmitZeroSerialization(t *testing.T) {
 			Model:       "gpt-4",
 			Temperature: 0.7,
 		}
-		
+
 		// Convert to JSON to simulate what would be sent to API
 		data, err := json.Marshal(opts)
 		if err != nil {
 			t.Fatalf("Failed to marshal: %v", err)
 		}
-		
+
 		// Parse back to verify omitzero behavior
 		var result map[string]interface{}
 		err = json.Unmarshal(data, &result)
 		if err != nil {
 			t.Fatalf("Failed to unmarshal: %v", err)
 		}
-		
+
 		// Check that zero values are omitted
 		if _, exists := result["max_tokens"]; exists {
 			t.Errorf("Expected max_tokens to be omitted when zero")
@@ -56,7 +56,7 @@ func TestOmitZeroSerialization(t *testing.T) {
 		if _, exists := result["top_logprobs"]; exists {
 			t.Errorf("Expected top_logprobs to be omitted when zero")
 		}
-		
+
 		// Check that non-zero values are included
 		if result["model"] != "gpt-4" {
 			t.Errorf("Expected model to be included")
@@ -78,38 +78,37 @@ func TestOmitZeroSerialization(t *testing.T) {
 			WithSeed(42),
 			WithUser("test-user"),
 			WithJSONMode(),
-			WithStream(true),
 			WithLogProbs(true),
 			WithTopLogProbs(5),
 		)
-		
+
 		// Convert to JSON
 		data, err := json.Marshal(opts)
 		if err != nil {
 			t.Fatalf("Failed to marshal: %v", err)
 		}
-		
+
 		// Parse back to verify all values are included
 		var result map[string]interface{}
 		err = json.Unmarshal(data, &result)
 		if err != nil {
 			t.Fatalf("Failed to unmarshal: %v", err)
 		}
-		
+
 		// Check that all set values are included
 		expectedFields := []string{
-			"model", "temperature", "max_tokens", "top_p", 
-			"frequency_penalty", "presence_penalty", "stop", 
-			"seed", "user", "response_format", "stream", 
+			"model", "temperature", "max_tokens", "top_p",
+			"frequency_penalty", "presence_penalty", "stop",
+			"seed", "user", "response_format", "stream",
 			"logprobs", "top_logprobs",
 		}
-		
+
 		for _, field := range expectedFields {
 			if _, exists := result[field]; !exists {
 				t.Errorf("Expected field %s to be included", field)
 			}
 		}
-		
+
 		// Verify specific values
 		if result["model"] != "gpt-4" {
 			t.Errorf("Expected model 'gpt-4', got %v", result["model"])

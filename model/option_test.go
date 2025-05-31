@@ -92,15 +92,6 @@ func TestModelOptions(t *testing.T) {
 			t.Errorf("Expected text response format, got %s", opts.ResponseFormat.Type)
 		}
 	})
-
-	t.Run("WithStream", func(t *testing.T) {
-		opts := ModelOptions{}
-		WithStream(true)(&opts)
-		if !opts.Stream {
-			t.Errorf("Expected stream true, got %t", opts.Stream)
-		}
-	})
-
 	t.Run("WithLogProbs", func(t *testing.T) {
 		opts := ModelOptions{}
 		WithLogProbs(true)(&opts)
