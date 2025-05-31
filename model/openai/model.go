@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"nyxze/fayth/model"
 	"nyxze/fayth/model/openai/internal"
@@ -26,7 +27,6 @@ type ChatMessage = internal.ChatMessage
 type ChatRequest = internal.ChatCompletionRequest
 
 type llm struct {
-
 	// Underlying [internal.Client] for inference call
 	client *internal.Client
 
@@ -39,7 +39,6 @@ var _ model.Model = (*llm)(nil)
 
 // Return a New OpenAI [model.Model]
 func New(opts ...ClientOption) (*llm, error) {
-
 	options := clientOptions{}
 
 	// Apply options
@@ -62,9 +61,8 @@ func New(opts ...ClientOption) (*llm, error) {
 	return model, nil
 }
 
-// Generate implements [model.Model] interface
+// Generate implements the Model interface for both streaming and non-streaming responses
 func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...model.ModelOption) (*model.Generation, error) {
-
 	if len(messages) == 0 {
 		return nil, errors.New("empty messages")
 	}
@@ -75,35 +73,96 @@ func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 	if err := validateOptions(options); err != nil {
 		return nil, err
 	}
-	chatMsg := make([]ChatMessage, len(messages))
 
+	chatMsg := make([]ChatMessage, len(messages))
 	for i := range len(chatMsg) {
 		chatMsg[i] = toOpenAIMessages(messages[i])
 	}
+
 	// Create request from ModelOptions & Messages
 	req := internal.ChatCompletionRequest{
 		Messages:         chatMsg,
-		Model:           options.Model,
-		Temperature:     options.Temperature,
-		TopP:            options.TopP,
-		MaxTokens:       options.MaxTokens,
+		Model:            options.Model,
+		Temperature:      options.Temperature,
+		TopP:             options.TopP,
+		MaxTokens:        options.MaxTokens,
 		FrequencyPenalty: options.FrequencyPenalty,
-		PresencePenalty: options.PresencePenalty,
-		Stop:            options.Stop,
-		Seed:            options.Seed,
-		User:            options.User,
-		ResponseFormat:  internal.ResponseFormat(options.ResponseFormat),
-		Stream:          options.Stream,
-		LogProbs:        options.LogProbs,
-		TopLogProbs:     options.TopLogProbs,
+		PresencePenalty:  options.PresencePenalty,
+		Stop:             options.Stop,
+		Seed:             options.Seed,
+		User:             options.User,
+		ResponseFormat:   internal.ResponseFormat(options.ResponseFormat),
+		LogProbs:         options.LogProbs,
+		TopLogProbs:      options.TopLogProbs,
+		Stream:           options.StreamHandler != nil,
 	}
 
-	resp, err := m.client.Chat.Completion(ctx, req)
+	// Handle non-streaming case
+	if !req.Stream {
+		resp, err := m.client.Chat.Completion(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return toGeneration(resp)
+	}
+	// Handle streaming case
+	streamChan, err := m.client.Chat.CompletionStream(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	return toGeneration(resp)
+	var currentContent strings.Builder
+	var lastRole string
+
+	for {
+		select {
+		case <-ctx.Done():
+			return &model.Generation{Error: ctx.Err()}, nil
+		case streamResp, ok := <-streamChan:
+			if !ok {
+				// Stream completed, return final generation
+				if currentContent.Len() == 0 {
+					return nil, ErrNoContentInResponse
+				}
+				return &model.Generation{
+					Messages: []model.Message{
+						model.NewTextMessage(internal.ToModelRole(lastRole), currentContent.String()),
+					},
+				}, nil
+			}
+
+			// Handle errors in stream response
+			if streamResp.Object == "error" {
+				err := errors.New(streamResp.Choices[0].Delta.Content)
+				return &model.Generation{Error: err}, nil
+			}
+
+			// Process each choice in the response
+			for _, choice := range streamResp.Choices {
+				if choice.FinishReason != "" {
+					continue
+				}
+
+				// Update role if provided
+				if choice.Delta.Role != "" {
+					lastRole = choice.Delta.Role
+				}
+
+				// Accumulate content if provided
+				if choice.Delta.Content != "" {
+					currentContent.WriteString(choice.Delta.Content)
+					// Create message from current content and call handler
+					role := internal.ToModelRole(lastRole)
+					msg := model.NewTextMessage(role, currentContent.String())
+
+					// Pass message to handler
+					if err := options.StreamHandler(msg); err != nil {
+						return &model.Generation{Error: err}, nil
+					}
+				}
+			}
+		}
+	}
 }
 
 func (c *llm) String() string {
@@ -113,41 +172,16 @@ func (c *llm) String() string {
 func toGeneration(resp *internal.ChatCompletionResponse) (*model.Generation, error) {
 	gen := &model.Generation{}
 	for _, v := range resp.Choices {
-		var role model.Role
-		switch v.Message.Role {
-		case internal.AssistantRole:
-			role = model.Assistant
-		case internal.SystemRole:
-			role = model.System
-		case internal.DevRole:
-			role = model.System
-		case internal.UserRole:
-			role = model.User
-		case internal.ToolRole:
-			role = model.Tool
-		}
+		role := internal.ToModelRole(v.Message.Role)
 		msg := model.NewTextMessage(role, v.Message.Content)
 		gen.Messages = append(gen.Messages, msg)
 	}
-
 	return gen, nil
 }
+
 func toOpenAIMessages(message model.Message) ChatMessage {
-	var chatRole internal.Role
-	// Set roles
-	switch message.Role {
-	case model.User:
-		chatRole = internal.UserRole
-	case model.Assistant:
-		chatRole = internal.AssistantRole
-	case model.System:
-		chatRole = internal.SystemRole
-	case model.Tool:
-		chatRole = internal.ToolRole
-	}
-	// Add Name ?
 	return internal.ChatMessage{
-		Role:     chatRole,
+		Role:     internal.ToOpenAIRole(message.Role),
 		Contents: internal.ToChatContent(message.Contents),
 	}
 }
@@ -158,48 +192,48 @@ func validateOptions(options model.ModelOptions) error {
 	if options.Model == "" {
 		return errors.New("no model provided")
 	}
-	
+
 	// Temperature validation (0.0 to 2.0)
 	if options.Temperature < 0.0 || options.Temperature > 2.0 {
 		return errors.New("temperature must be between 0.0 and 2.0")
 	}
-	
+
 	// TopP validation (0.0 to 1.0) - only validate if non-zero
 	if options.TopP != 0 && (options.TopP < 0.0 || options.TopP > 1.0) {
 		return errors.New("top_p must be between 0.0 and 1.0")
 	}
-	
+
 	// MaxTokens validation (must be positive if set)
 	if options.MaxTokens != 0 && options.MaxTokens <= 0 {
 		return errors.New("max_tokens must be positive")
 	}
-	
+
 	// FrequencyPenalty validation (-2.0 to 2.0) - only validate if non-zero
 	if options.FrequencyPenalty != 0 && (options.FrequencyPenalty < -2.0 || options.FrequencyPenalty > 2.0) {
 		return errors.New("frequency_penalty must be between -2.0 and 2.0")
 	}
-	
+
 	// PresencePenalty validation (-2.0 to 2.0) - only validate if non-zero
 	if options.PresencePenalty != 0 && (options.PresencePenalty < -2.0 || options.PresencePenalty > 2.0) {
 		return errors.New("presence_penalty must be between -2.0 and 2.0")
 	}
-	
+
 	// TopLogProbs validation (0 to 20) - only validate if non-zero
 	if options.TopLogProbs != 0 && (options.TopLogProbs < 0 || options.TopLogProbs > 20) {
 		return errors.New("top_logprobs must be between 0 and 20")
 	}
-	
+
 	// ResponseFormat validation - only validate if Type is set
 	if options.ResponseFormat.Type != "" {
 		if options.ResponseFormat.Type != "text" && options.ResponseFormat.Type != "json_object" {
 			return errors.New("response_format type must be 'text' or 'json_object'")
 		}
 	}
-	
+
 	// Stop sequences validation (max 4 sequences)
 	if len(options.Stop) > 4 {
 		return errors.New("maximum of 4 stop sequences allowed")
 	}
-	
+
 	return nil
 }
