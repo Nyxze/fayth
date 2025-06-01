@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"net/http"
 	"nyxze/fayth/model"
 	"nyxze/fayth/model/openai/internal"
 )
@@ -41,6 +42,15 @@ func WithModel(name string) ClientOption {
 func WithOrganization(org string) ClientOption {
 	return func(opts *clientOptions) error {
 		opts.internalOpts = append(opts.internalOpts, internal.WithOrganization(org))
+		return nil
+	}
+}
+
+// WithHTTPClient sets a custom HTTP client for making requests.
+// This is primarily used for testing to inject mock transports.
+func WithHTTPClient(client *http.Client) ClientOption {
+	return func(opts *clientOptions) error {
+		opts.internalOpts = append(opts.internalOpts, internal.WithHTTPClient(client))
 		return nil
 	}
 }

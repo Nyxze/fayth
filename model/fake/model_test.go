@@ -64,8 +64,8 @@ func TestFakeModel_NonStreaming(t *testing.T) {
 			if got.Role != tt.output.Role {
 				t.Errorf("Generate() wrong role, got %v, want %v", got.Role, tt.output.Role)
 			}
-			if got.Text()[0] != tt.output.Text()[0] {
-				t.Errorf("Generate() wrong text, got %q, want %q", got.Text()[0], tt.output.Text()[0])
+			if got.Text() != tt.output.Text() {
+				t.Errorf("Generate() wrong text, got %q, want %q", got.Text(), tt.output.Text())
 			}
 		})
 	}
@@ -129,7 +129,7 @@ func TestFakeModel_Streaming(t *testing.T) {
 			var chunks []string
 
 			// Run streaming generation
-			gen, err := fakeModel.Generate(ctx, []model.Message{tt.input},
+			_, err := fakeModel.Generate(ctx, []model.Message{tt.input},
 				model.WithStream(func(msg model.Message) error {
 					if tt.expectError != nil && tt.expectError.Error() == "handler error" {
 						return tt.expectError
@@ -138,18 +138,12 @@ func TestFakeModel_Streaming(t *testing.T) {
 					return nil
 				}))
 
-			// Check immediate errors
-			if err != nil {
-				t.Errorf("Generate() unexpected error: %v", err)
-				return
-			}
-
 			// Check generation result
 			if tt.expectError != nil {
-				if gen.Error == nil {
+				if err == nil {
 					t.Error("Generate() expected error, got nil")
-				} else if tt.expectError.Error() != gen.Error.Error() {
-					t.Errorf("Generate() wrong error, got %v, want %v", gen.Error, tt.expectError)
+				} else if tt.expectError.Error() != err.Error() {
+					t.Errorf("Generate() wrong error, got %v, want %v", err.Error(), tt.expectError)
 				}
 				return
 			}

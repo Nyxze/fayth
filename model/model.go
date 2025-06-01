@@ -7,7 +7,6 @@ import (
 // Generation represents a complete response
 type Generation struct {
 	Messages []Message `json:"messages"`
-	Error    error     `json:"error,omitempty"`
 }
 
 // MessageHandler is called for each message chunk during streaming

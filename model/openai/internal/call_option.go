@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -25,6 +26,7 @@ type CallConfig struct {
 	Organization string
 	Project      string
 	APIKey       string
+	HTTPClient   *http.Client
 }
 
 func (c *CallConfig) IsValid() error {
@@ -64,6 +66,13 @@ func WithProject(project string) CallOption {
 func WithAPIKey(key string) CallOption {
 	return func(cc *CallConfig) error {
 		cc.APIKey = key
+		return nil
+	}
+}
+
+func WithHTTPClient(client *http.Client) CallOption {
+	return func(cc *CallConfig) error {
+		cc.HTTPClient = client
 		return nil
 	}
 }

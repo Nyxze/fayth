@@ -3,7 +3,7 @@ package openai
 import (
 	"context"
 	"errors"
-	"strings"
+	"fmt"
 
 	"nyxze/fayth/model"
 	"nyxze/fayth/model/openai/internal"
@@ -18,8 +18,7 @@ var (
 
 // Default options
 var DEFAULT_OPTIONS = model.ModelOptions{
-	Model:       ChatModelGPT4,
-	Temperature: 1,
+	Model: ChatModelGPT4,
 }
 
 // Type Alias
@@ -75,8 +74,12 @@ func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 	}
 
 	chatMsg := make([]ChatMessage, len(messages))
-	for i := range len(chatMsg) {
-		chatMsg[i] = toOpenAIMessages(messages[i])
+	for i, msg := range messages {
+		converted := toOpenAIMessages(msg)
+		if err := validateChatMessage(converted); err != nil {
+			return nil, fmt.Errorf("invalid message at position %d: %w", i, err)
+		}
+		chatMsg[i] = converted
 	}
 
 	// Create request from ModelOptions & Messages
@@ -97,72 +100,32 @@ func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 		Stream:           options.StreamHandler != nil,
 	}
 
-	// Handle non-streaming case
-	if !req.Stream {
-		resp, err := m.client.Chat.Completion(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		return toGeneration(resp)
-	}
-	// Handle streaming case
-	streamChan, err := m.client.Chat.CompletionStream(ctx, req)
+	resp, err := m.client.Chat.Completion(ctx, req)
 	if err != nil {
 		return nil, err
 	}
+	if req.Stream {
+		gen := &model.Generation{Messages: make([]model.Message, 0)}
+		currentMessage := model.Message{}
+		for chunk := range resp.StreamIter {
+			// Process the chunk and update current message
+			chunkMessage := fromChunk(chunk)
+			currentMessage = mergeMessages(currentMessage, chunkMessage)
 
-	var currentContent strings.Builder
-	var lastRole string
-
-	for {
-		select {
-		case <-ctx.Done():
-			return &model.Generation{Error: ctx.Err()}, nil
-		case streamResp, ok := <-streamChan:
-			if !ok {
-				// Stream completed, return final generation
-				if currentContent.Len() == 0 {
-					return nil, ErrNoContentInResponse
-				}
-				return &model.Generation{
-					Messages: []model.Message{
-						model.NewTextMessage(internal.ToModelRole(lastRole), currentContent.String()),
-					},
-				}, nil
-			}
-
-			// Handle errors in stream response
-			if streamResp.Object == "error" {
-				err := errors.New(streamResp.Choices[0].Delta.Content)
-				return &model.Generation{Error: err}, nil
-			}
-
-			// Process each choice in the response
-			for _, choice := range streamResp.Choices {
-				if choice.FinishReason != "" {
-					continue
-				}
-
-				// Update role if provided
-				if choice.Delta.Role != "" {
-					lastRole = choice.Delta.Role
-				}
-
-				// Accumulate content if provided
-				if choice.Delta.Content != "" {
-					currentContent.WriteString(choice.Delta.Content)
-					// Create message from current content and call handler
-					role := internal.ToModelRole(lastRole)
-					msg := model.NewTextMessage(role, currentContent.String())
-
-					// Pass message to handler
-					if err := options.StreamHandler(msg); err != nil {
-						return &model.Generation{Error: err}, nil
-					}
-				}
+			// Call stream handler if provided
+			if err := options.StreamHandler(chunkMessage); err != nil {
+				return nil, fmt.Errorf("stream handler error: %w", err)
 			}
 		}
+
+		// Add the final message to generation
+		if len(currentMessage.Contents) != 0 {
+			gen.Messages = append(gen.Messages, currentMessage)
+		}
+
+		return gen, nil
 	}
+	return toGeneration(resp.Response)
 }
 
 func (c *llm) String() string {
@@ -184,6 +147,58 @@ func toOpenAIMessages(message model.Message) ChatMessage {
 		Role:     internal.ToOpenAIRole(message.Role),
 		Contents: internal.ToChatContent(message.Contents),
 	}
+}
+
+func fromChunk(c internal.ChatCompletionChunk) model.Message {
+	// Get the first choice from the chunk
+	if len(c.Choices) == 0 {
+		return model.Message{}
+	}
+
+	choice := c.Choices[0]
+	role := internal.ToModelRole(choice.Delta.Role)
+	content := choice.Delta.Content
+
+	return model.NewTextMessage(role, content)
+}
+
+func mergeMessages(current, chunk model.Message) model.Message {
+	// If current is empty, use the chunk as is
+	if current.Contents == nil {
+		return chunk
+	}
+
+	// If chunk is empty, keep current
+	if chunk.Contents == nil {
+		return current
+	}
+
+	// If role is provided in chunk, use it, otherwise keep current role
+	role := current.Role
+	if chunk.Role != "" {
+		role = chunk.Role
+	}
+
+	// Merge the text content
+	currentText := current.Text()
+	chunkText := chunk.Text()
+
+	return model.NewTextMessage(role, currentText+chunkText)
+}
+
+func validateChatMessage(msg ChatMessage) error {
+	// Validate role
+	if msg.Role == "" {
+		return errors.New("message role cannot be empty")
+	}
+
+	// Validate contents
+	if msg.Contents == nil {
+		return errors.New("message contents cannot be nil")
+	}
+
+	// Additional validation could be added here based on content type
+	return nil
 }
 
 // validateOptions validates the model options to ensure they're within acceptable ranges

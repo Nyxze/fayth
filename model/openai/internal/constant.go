@@ -1,11 +1,7 @@
 package internal
 
-type Role = string
-type ContentType = string
+type Role string
 
-const (
-	API_ENDPOINT = "https://api.openai.com/v1/"
-)
 const (
 	SystemRole    Role = "system"
 	DevRole       Role = "developer"
@@ -16,6 +12,7 @@ const (
 )
 
 const (
+	API_ENDPOINT   = "https://api.openai.com/v1/"
 	API_KEY_ENV    = "OPENAI_API_KEY" //nolint:gosec
 	MODEL_NAME_ENV = "OPENAI_MODEL"   //nolint:gosec
 	BASE_URL_ENV   = "OPENAI_BASE_URL"
@@ -23,8 +20,19 @@ const (
 	PROJECT_ID_ENV = "OPENAI_PROJECT_ID"
 )
 
+type ContentType string
+
 const (
 	TextContent       ContentType = "text"
 	AudioInputContent ContentType = "input_audio"
 	ResusalContent    ContentType = "refusal"
+)
+
+type FinishReason string
+
+const (
+	STOP          = "stop"
+	LENGTH        = "length"
+	TOOL_CALL     = "tool_calls"
+	FUNCTION_CALL = "function_call"
 )

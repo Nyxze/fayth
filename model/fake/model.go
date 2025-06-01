@@ -3,7 +3,6 @@ package fake
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"nyxze/fayth/model"
@@ -45,29 +44,22 @@ func (f fakeModel) Generate(ctx context.Context, m []model.Message, opts ...mode
 	if options.StreamHandler != nil {
 		// Get the text content to stream
 		text := f.Response.Text()
-		var currentContent strings.Builder
 
 		// Stream the content in chunks
 		for i := 0; i < len(text); i += f.ChunkSize {
 			select {
 			case <-ctx.Done():
-				return &model.Generation{Error: ctx.Err()}, nil
+				return nil, ctx.Err()
 			default:
 				// Calculate chunk end
-				end := i + f.ChunkSize
-				if end > len(text) {
-					end = len(text)
-				}
-
-				// Append new chunk to accumulated content
-				currentContent.WriteString(text[i:end])
+				end := min(i+f.ChunkSize, len(text))
 
 				// Create message with accumulated content
-				msg := model.NewTextMessage(f.Response.Role, currentContent.String())
+				msg := model.NewTextMessage(f.Response.Role, text[i:end])
 
 				// Call the stream handler
 				if err := options.StreamHandler(msg); err != nil {
-					return &model.Generation{Error: err}, nil
+					return nil, err
 				}
 
 				// Simulate network delay between chunks

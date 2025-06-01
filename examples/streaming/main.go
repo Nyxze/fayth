@@ -39,24 +39,5 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	if gen.Error != nil {
-		log.Fatal(gen.Error)
-	}
-
-	fmt.Println("\nFinal response:", gen.Messages[0].Text()[0])
-
-	// Example 2: Non-streaming
-	fmt.Println("\nNon-streaming response:")
-	fmt.Print("Assistant: ")
-
-	gen, err = llm.Generate(context.Background(), messages)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if gen.Error != nil {
-		log.Fatal(gen.Error)
-	}
-	fmt.Println(gen.Messages[0].Text()[0])
+	fmt.Println(gen.Messages)
 }
