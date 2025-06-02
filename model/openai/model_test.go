@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -280,21 +281,20 @@ func TestOpenAI_Streaming(t *testing.T) {
 				cancel = func() {}
 			}
 			defer cancel()
+
 			// Track received chunks
 			var chunks []string
-			chunkCount := 0
 
 			// Make the streaming request
-			_, err = llm.Generate(ctx, tt.input,
-				model.WithStream(func(msg model.Message) error {
-					chunks = append(chunks, msg.Text())
-					if len(chunks) >= tt.cancelAfterRead {
-						cancel()
-					}
-					chunkCount++
-					return nil
-				}))
+			gen, err := llm.Generate(ctx, tt.input, model.WithStream(true))
 
+			for m := range gen.All() {
+				fmt.Println(m.Text())
+				chunks = append(chunks, m.Text())
+				if len(chunks) == tt.cancelAfterRead {
+					cancel()
+				}
+			}
 			// Check success cases
 			if err != nil && !tt.expectedError {
 				t.Errorf("Unexpected error: %v", err)

@@ -2,8 +2,7 @@ package fake
 
 import (
 	"context"
-	"errors"
-	"strings"
+	"fmt"
 	"testing"
 	"time"
 
@@ -99,11 +98,6 @@ func TestFakeModel_Streaming(t *testing.T) {
 			cancelContext: true,
 			expectError:   context.Canceled,
 		},
-		"Handler error propagation": {
-			input:       model.NewTextMessage(model.Assistant, "Error test"),
-			chunkSize:   5,
-			expectError: errors.New("handler error"),
-		},
 	}
 
 	for name, tt := range tests {
@@ -125,21 +119,20 @@ func TestFakeModel_Streaming(t *testing.T) {
 				}()
 			}
 
-			// Track received chunks
-			var chunks []string
-
 			// Run streaming generation
-			_, err := fakeModel.Generate(ctx, []model.Message{tt.input},
-				model.WithStream(func(msg model.Message) error {
-					if tt.expectError != nil && tt.expectError.Error() == "handler error" {
-						return tt.expectError
-					}
-					chunks = append(chunks, msg.Text())
-					return nil
-				}))
+			gen, err := fakeModel.Generate(ctx, []model.Message{tt.input}, model.WithStream(true))
 
+			finalMsg := ""
+			for m := range gen.All() {
+				fmt.Println(m)
+				finalMsg += m.Text()
+			}
 			// Check generation result
 			if tt.expectError != nil {
+				// For cancelContext, error is at Generation layer
+				if tt.cancelContext {
+					err = gen.Err
+				}
 				if err == nil {
 					t.Error("Generate() expected error, got nil")
 				} else if tt.expectError.Error() != err.Error() {
@@ -149,15 +142,14 @@ func TestFakeModel_Streaming(t *testing.T) {
 			}
 
 			// Verify chunks
-			if tt.expectChunks > 0 && len(chunks) != tt.expectChunks {
-				t.Errorf("Generate() wrong number of chunks, got %d, want %d", len(chunks), tt.expectChunks)
+			if tt.expectChunks > 0 && len(gen.Messages) != tt.expectChunks {
+				t.Errorf("Generate() wrong number of chunks, got %d, want %d", len(gen.Messages), tt.expectChunks)
 			}
 
 			// Verify final message matches input
 			if !tt.cancelContext {
-				finalText := strings.Join(chunks, "")
-				if finalText != tt.input.Text() {
-					t.Errorf("Generate() wrong accumulated text, got %q, want %q", finalText, tt.input.Text())
+				if finalMsg != tt.input.Text() {
+					t.Errorf("Generate() wrong accumulated text, got %q, want %q", finalMsg, tt.input.Text())
 				}
 			}
 		})

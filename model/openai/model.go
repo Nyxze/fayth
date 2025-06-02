@@ -97,7 +97,7 @@ func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 		ResponseFormat:   internal.ResponseFormat(options.ResponseFormat),
 		LogProbs:         options.LogProbs,
 		TopLogProbs:      options.TopLogProbs,
-		Stream:           options.StreamHandler != nil,
+		Stream:           options.Stream,
 	}
 
 	resp, err := m.client.Chat.Completion(ctx, req)
@@ -105,25 +105,8 @@ func (m llm) Generate(ctx context.Context, messages []model.Message, opts ...mod
 		return nil, err
 	}
 	if req.Stream {
-		gen := &model.Generation{Messages: make([]model.Message, 0)}
-		currentMessage := model.Message{}
-		for chunk := range resp.StreamIter {
-			// Process the chunk and update current message
-			chunkMessage := fromChunk(chunk)
-			currentMessage = mergeMessages(currentMessage, chunkMessage)
-
-			// Call stream handler if provided
-			if err := options.StreamHandler(chunkMessage); err != nil {
-				return nil, fmt.Errorf("stream handler error: %w", err)
-			}
-		}
-
-		// Add the final message to generation
-		if len(currentMessage.Contents) != 0 {
-			gen.Messages = append(gen.Messages, currentMessage)
-		}
-
-		return gen, nil
+		stream := toMessageIter(resp, options.MessageHandler...)
+		return model.NewGenerationWithStream(stream), nil
 	}
 	return toGeneration(resp.Response)
 }
@@ -132,14 +115,40 @@ func (c *llm) String() string {
 	return "OpenAI"
 }
 
+func toMessageIter(r *internal.ChatResponse, handlers ...model.MessageHandler) model.MessageIter {
+	return func(yield func(model.Message) bool) {
+		if r.StreamIter == nil {
+			fmt.Println("ChatResponse stream is nil")
+			return
+		}
+		for chunk := range r.StreamIter {
+			for _, msg := range fromChunk(chunk) {
+
+				// Raise message
+				handleMessage(msg, handlers)
+
+				// Forward
+				if !yield(msg) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func handleMessage(msg model.Message, handlers []model.MessageHandler) {
+	for _, h := range handlers {
+		h(msg)
+	}
+}
 func toGeneration(resp *internal.ChatCompletionResponse) (*model.Generation, error) {
-	gen := &model.Generation{}
+	messages := make([]model.Message, 0, len(resp.Choices))
 	for _, v := range resp.Choices {
 		role := internal.ToModelRole(v.Message.Role)
 		msg := model.NewTextMessage(role, v.Message.Content)
-		gen.Messages = append(gen.Messages, msg)
+		messages = append(messages, msg)
 	}
-	return gen, nil
+	return model.NewGeneration(messages), nil
 }
 
 func toOpenAIMessages(message model.Message) ChatMessage {
@@ -149,41 +158,20 @@ func toOpenAIMessages(message model.Message) ChatMessage {
 	}
 }
 
-func fromChunk(c internal.ChatCompletionChunk) model.Message {
+func fromChunk(c internal.ChatCompletionChunk) []model.Message {
 	// Get the first choice from the chunk
 	if len(c.Choices) == 0 {
-		return model.Message{}
+		return nil
 	}
-
-	choice := c.Choices[0]
-	role := internal.ToModelRole(choice.Delta.Role)
-	content := choice.Delta.Content
-
-	return model.NewTextMessage(role, content)
-}
-
-func mergeMessages(current, chunk model.Message) model.Message {
-	// If current is empty, use the chunk as is
-	if current.Contents == nil {
-		return chunk
+	messages := make([]model.Message, 0, len(c.Choices))
+	for _, c := range c.Choices {
+		role := internal.ToModelRole(c.Delta.Role)
+		content := c.Delta.Content
+		msg := model.NewTextMessage(role, content)
+		msg.Index = c.Index
+		messages = append(messages, msg)
 	}
-
-	// If chunk is empty, keep current
-	if chunk.Contents == nil {
-		return current
-	}
-
-	// If role is provided in chunk, use it, otherwise keep current role
-	role := current.Role
-	if chunk.Role != "" {
-		role = chunk.Role
-	}
-
-	// Merge the text content
-	currentText := current.Text()
-	chunkText := chunk.Text()
-
-	return model.NewTextMessage(role, currentText+chunkText)
+	return messages
 }
 
 func validateChatMessage(msg ChatMessage) error {
