@@ -1,4 +1,4 @@
-package main
+package examples
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"nyxze/fayth/model/openai"
 )
 
-func main() {
+func Streaming() {
 	// Create a new OpenAI model instance
 	llm, err := openai.New(
 		openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
@@ -28,16 +28,17 @@ func main() {
 	fmt.Println("Streaming response:")
 	fmt.Print("Assistant: ")
 
-	gen, err := llm.Generate(context.Background(), messages,
-		model.WithStream(func(msg model.Message) error {
-			// Print each chunk as it arrives
-			fmt.Print(msg.Text()[0])
-			return nil
-		}),
-	)
-
+	gen, err := llm.Generate(context.Background(), messages, model.WithStream(true))
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	for m := range gen.All() {
+		fmt.Println(m)
+	}
+	if gen.Error() != nil {
+		fmt.Println("Error when generating", gen)
+	}
+
 	fmt.Println(gen.Messages)
 }

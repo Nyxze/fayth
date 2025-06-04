@@ -41,36 +41,33 @@ func (f fakeModel) Generate(ctx context.Context, m []model.Message, opts ...mode
 	}
 
 	// Handle streaming case
-	if options.StreamHandler != nil {
-		// Get the text content to stream
-		text := f.Response.Text()
-
-		// Stream the content in chunks
-		for i := 0; i < len(text); i += f.ChunkSize {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			default:
-				// Calculate chunk end
-				end := min(i+f.ChunkSize, len(text))
-
-				// Create message with accumulated content
-				msg := model.NewTextMessage(f.Response.Role, text[i:end])
-
-				// Call the stream handler
-				if err := options.StreamHandler(msg); err != nil {
-					return nil, err
-				}
-
-				// Simulate network delay between chunks
-				time.Sleep(f.ChunkDelay)
-			}
-		}
-
-		// Return the complete response
-		return &model.Generation{Messages: []model.Message{f.Response}}, nil
+	if options.Stream {
+		gen := &model.Generation{}
+		gen.MessageIter = f.fakeIter(ctx, gen)
+		return gen, nil
 	}
 
 	// Non-streaming case: return complete response immediately
 	return &model.Generation{Messages: []model.Message{f.Response}}, nil
+}
+
+func (f *fakeModel) fakeIter(ctx context.Context, gen *model.Generation) model.MessageIter {
+	return func(yield func(model.Message) bool) {
+		text := f.Response.Text()
+		for i := 0; i < len(text); i += f.ChunkSize {
+			select {
+			case <-ctx.Done():
+				gen.Err = ctx.Err()
+				return
+			default:
+				end := min(len(text), i+f.ChunkSize)
+				chunk := text[i:end]
+				msg := model.NewTextMessage(model.Assistant, chunk)
+				if !yield(msg) {
+					return
+				}
+				time.Sleep(f.ChunkDelay)
+			}
+		}
+	}
 }

@@ -31,6 +31,7 @@ type ContentPart interface {
 type Message struct {
 	Role       Role              `json:"role"`
 	Contents   []ContentPart     `json:"contents"`
+	Index      int               `json:"index"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
 	Properties map[string]any    `json:"properties,omitempty"`
 }

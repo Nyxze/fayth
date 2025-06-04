@@ -23,6 +23,8 @@ type ModelOptions struct {
 	// Higher values make output more random, lower values more deterministic
 	Temperature float64 `json:"temperature"`
 
+	Stream bool `json:"stream"`
+
 	// MaxTokens sets the maximum number of tokens to generate
 	// If 0, uses the model's default maximum
 	MaxTokens int `json:"max_tokens,omitzero"`
@@ -58,9 +60,9 @@ type ModelOptions struct {
 	// TopLogProbs specifies number of top log probabilities to return (0-20)
 	TopLogProbs int `json:"top_logprobs,omitzero"`
 
-	// StreamHandler is called with each message chunk when streaming
+	// MessageHandler is called with each message chunk when streaming
 	// If nil, streaming is disabled
-	StreamHandler MessageHandler `json:"-"`
+	MessageHandler []MessageHandler `json:"-"`
 }
 
 // ResponseFormat specifies the format of the model's output
@@ -91,12 +93,16 @@ func WithMaxTokens(maxTokens int) ModelOption {
 	}
 }
 
-// WithStream enables streaming by providing a handler function
-// The handler will be called for each message chunk as it arrives
-// If handler is nil, streaming is disabled
-func WithStream(handler MessageHandler) ModelOption {
+// WithStream enables or disables streaming and optionally sets a message handler.
+//
+// The first argument 's' determines whether streaming is enabled.
+// If 's' is true and a handler is provided, the handler will be called for each message chunk as it arrives.
+// If no handler is provided, streaming is enabled without a handler.
+// If 's' is false, streaming is disabled regardless of whether a handler is provided.
+func WithStream(s bool, handler ...MessageHandler) ModelOption {
 	return func(mo *ModelOptions) {
-		mo.StreamHandler = handler
+		mo.Stream = s
+		mo.MessageHandler = handler
 	}
 }
 
