@@ -9,9 +9,11 @@ import (
 	"iter"
 	"net/http"
 	"net/url"
+
 	"nyxze/choco-go"
 	choco_json "nyxze/choco-go/json"
 	"nyxze/choco-go/seqio"
+	"nyxze/choco-go/sse"
 	"strings"
 )
 
@@ -40,8 +42,8 @@ func NewChatService(opts ...CallOption) ChatService {
 // Endpoint
 // https://api.openai.com/v1/chat/completions
 func (c *ChatService) Completion(ctx context.Context, chatRequest ChatCompletionRequest, opts ...CallOption) (*ChatResponse, error) {
-
 	// Append method CallOption at the end
+
 	opts = append(c.Options[:], opts...)
 
 	// Apply config
@@ -89,29 +91,18 @@ func (c *ChatService) Completion(ctx context.Context, chatRequest ChatCompletion
 	}, nil
 }
 
+type Event struct {
+	Data  string `sse:"data"`
+	Event string `sse:"event"`
+}
+
 func readChunk(ctx context.Context, r io.ReadCloser) iter.Seq[ChatCompletionChunk] {
 	return func(yield func(ChatCompletionChunk) bool) {
-		for line := range seqio.Lines(ctx, r) {
-
-			// Handle empty input
-			if len(line) == 0 {
-				continue
-			}
-
-			// Remove "data: " prefix that's required in SSE format
-			b, found := strings.CutPrefix(line, "data: ")
-			if !found {
-				continue
-			}
-
-			// Check for stream termination message
-			if strings.HasPrefix(b, "[DONE]") {
-				// Using io.EOF is appropriate here as it signals normal end of stream
-				break
-			}
+		sseIter := sse.NewSSEIter[Event](r, "[DONE]")
+		for evt := range seqio.Range(ctx, sseIter) {
 			var value ChatCompletionChunk
 			// Parse JSON chunk into ChatCompletionChunk struct
-			if err := json.Unmarshal([]byte(b), &value); err != nil {
+			if err := json.Unmarshal([]byte(evt.Data), &value); err != nil {
 				// Skip failing parsing
 				fmt.Println("Failed to parse to ChatCompletion chunk")
 				continue
