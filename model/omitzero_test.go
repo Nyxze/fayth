@@ -73,6 +73,7 @@ func TestOmitZeroSerialization(t *testing.T) {
 			WithMaxTokens(1000),
 			WithTopP(0.9),
 			WithFrequencyPenalty(0.5),
+			WithStream(true),
 			WithPresencePenalty(-0.2),
 			WithStop("END"),
 			WithSeed(42),

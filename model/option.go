@@ -23,7 +23,7 @@ type ModelOptions struct {
 	// Higher values make output more random, lower values more deterministic
 	Temperature float64 `json:"temperature"`
 
-	Stream bool `json:"stream"`
+	Stream bool `json:"stream,omitzero"`
 
 	// MaxTokens sets the maximum number of tokens to generate
 	// If 0, uses the model's default maximum
