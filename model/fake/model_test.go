@@ -38,9 +38,9 @@ func TestFakeModel_NonStreaming(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			model := NewModel("FakeModel", tt.output)
+			mod := NewModel("FakeModel", tt.output)
 			ctx := context.Background()
-			resp, err := model.Generate(ctx, tt.input)
+			resp, err := mod.Generate(ctx, tt.input)
 
 			if tt.shouldFail {
 				if err == nil {
@@ -54,12 +54,17 @@ func TestFakeModel_NonStreaming(t *testing.T) {
 				return
 			}
 
-			if len(resp.Messages) != 1 {
-				t.Errorf("Generate() expected 1 message, got %d", len(resp.Messages))
+			messages := []model.Message{}
+
+			for m := range resp.Messages() {
+				messages = append(messages, m)
+			}
+			if len(messages) != 1 {
+				t.Errorf("Generate() expected 1 message, got %d", len(messages))
 				return
 			}
 
-			got := resp.Messages[0]
+			got := messages[0]
 			if got.Role != tt.output.Role {
 				t.Errorf("Generate() wrong role, got %v, want %v", got.Role, tt.output.Role)
 			}
@@ -122,9 +127,11 @@ func TestFakeModel_Streaming(t *testing.T) {
 			// Run streaming generation
 			gen, err := fakeModel.Generate(ctx, []model.Message{tt.input}, model.WithStream(true))
 
+			buff := []model.Message{}
 			finalMsg := ""
-			for m := range gen.All() {
+			for m := range gen.Messages() {
 				fmt.Println(m)
+				buff = append(buff, m)
 				finalMsg += m.Text()
 			}
 			// Check generation result
@@ -142,8 +149,8 @@ func TestFakeModel_Streaming(t *testing.T) {
 			}
 
 			// Verify chunks
-			if tt.expectChunks > 0 && len(gen.Messages) != tt.expectChunks {
-				t.Errorf("Generate() wrong number of chunks, got %d, want %d", len(gen.Messages), tt.expectChunks)
+			if tt.expectChunks > 0 && len(buff) != tt.expectChunks {
+				t.Errorf("Generate() wrong number of chunks, got %d, want %d", len(buff), tt.expectChunks)
 			}
 
 			// Verify final message matches input

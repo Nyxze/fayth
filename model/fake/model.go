@@ -42,13 +42,14 @@ func (f fakeModel) Generate(ctx context.Context, m []model.Message, opts ...mode
 
 	// Handle streaming case
 	if options.Stream {
+		// Kinda wacky
 		gen := &model.Generation{}
-		gen.MessageIter = f.fakeIter(ctx, gen)
+		gen.MsgIter = f.fakeIter(ctx, gen)
 		return gen, nil
 	}
 
 	// Non-streaming case: return complete response immediately
-	return &model.Generation{Messages: []model.Message{f.Response}}, nil
+	return model.NewGeneration([]model.Message{f.Response}), nil
 }
 
 func (f *fakeModel) fakeIter(ctx context.Context, gen *model.Generation) model.MessageIter {

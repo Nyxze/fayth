@@ -170,14 +170,14 @@ func TestOpenAI_NonStreaming(t *testing.T) {
 				),
 			}
 
-			// Create model with mock transport
-			model, err := New(WithHTTPClient(&http.Client{Transport: mock}))
+			// Create mod with mock transport
+			mod, err := New(WithHTTPClient(&http.Client{Transport: mock}))
 			if err != nil {
 				t.Fatalf("Failed to create model: %v", err)
 			}
 
 			// Make the request
-			resp, err := model.Generate(context.Background(), tt.input)
+			resp, err := mod.Generate(context.Background(), tt.input)
 
 			// Check error cases
 			if tt.expectedError {
@@ -192,14 +192,17 @@ func TestOpenAI_NonStreaming(t *testing.T) {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-
-			if len(resp.Messages) != 1 {
-				t.Errorf("Expected 1 message, got %d", len(resp.Messages))
+			messages := []model.Message{}
+			for m := range resp.Messages() {
+				messages = append(messages, m)
+			}
+			if len(messages) != 1 {
+				t.Errorf("Expected 1 message, got %d", len(messages))
 				return
 			}
 
-			if resp.Messages[0].Text() != tt.expectedOutput {
-				t.Errorf("Expected output %q, got %q", tt.expectedOutput, resp.Messages[0].Text())
+			if messages[0].Text() != tt.expectedOutput {
+				t.Errorf("Expected output %q, got %q", tt.expectedOutput, messages[0].Text())
 			}
 
 			// Verify request
@@ -288,7 +291,7 @@ func TestOpenAI_Streaming(t *testing.T) {
 			// Make the streaming request
 			gen, err := llm.Generate(ctx, tt.input, model.WithStream(true))
 
-			for m := range gen.All() {
+			for m := range gen.Messages() {
 				fmt.Println(m.Text())
 				chunks = append(chunks, m.Text())
 				if len(chunks) == tt.cancelAfterRead {

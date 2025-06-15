@@ -14,8 +14,8 @@ type Generation struct {
 	// This may be populated immediately or during streaming.
 	messages []Message
 
-	// msgIter is an optional msgIter of messages, lazily evaluated.
-	msgIter MessageIter
+	// MsgIter is an optional MsgIter of messages, lazily evaluated.
+	MsgIter MessageIter
 
 	// err stores any error that occurred during streaming.
 	Err error
@@ -34,7 +34,7 @@ func NewGeneration(m []Message) *Generation {
 // NewGenerationWithStream returns a Generation that streams its messages lazily from the given iterator.
 func NewGenerationWithStream(stream MessageIter) *Generation {
 	return &Generation{
-		msgIter: stream,
+		MsgIter: stream,
 	}
 }
 
@@ -42,7 +42,7 @@ func NewGenerationWithStream(stream MessageIter) *Generation {
 // If the generation was streamed, this will lazily consume the stream and append results to Messages.
 // Subsequent calls to Messages will yield from the fully populated Messages slice.
 func (g *Generation) Messages() MessageIter {
-	if g.msgIter != nil {
+	if g.MsgIter != nil {
 		return g.iterStream()
 	}
 	return func(yield func(Message) bool) {
@@ -65,9 +65,9 @@ func (g *Generation) Error() error {
 // This function is only called once; subsequent calls to All will yield from the populated Messages slice.
 func (g *Generation) iterStream() MessageIter {
 	return func(yield func(Message) bool) {
-		seq := g.msgIter
+		seq := g.MsgIter
 		g.messages = make([]Message, 0, 1)
-		g.msgIter = nil
+		g.MsgIter = nil
 		for v := range seq {
 			// Emit
 			if !yield(v) {

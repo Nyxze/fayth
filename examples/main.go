@@ -33,12 +33,10 @@ func Streaming() {
 		log.Fatal(err)
 	}
 
-	for m := range gen.All() {
+	for m := range gen.Messages() {
 		fmt.Println(m)
 	}
 	if gen.Error() != nil {
 		fmt.Println("Error when generating", gen)
 	}
-
-	fmt.Println(gen.Messages)
 }
