@@ -10,12 +10,12 @@ import (
 // It may contain a static list of messages or a lazily-evaluated stream.
 // If streamed, messages are appended incrementally to Messages during iteration.
 type Generation struct {
-	// Messages contains the full list of generated messages.
+	// messages contains the full list of generated messages.
 	// This may be populated immediately or during streaming.
-	Messages []Message `json:"messages"`
+	messages []Message
 
-	// MessageIter is an optional MessageIter of messages, lazily evaluated.
-	MessageIter MessageIter
+	// msgIter is an optional msgIter of messages, lazily evaluated.
+	msgIter MessageIter
 
 	// err stores any error that occurred during streaming.
 	Err error
@@ -27,26 +27,26 @@ type MessageIter = iter.Seq[Message]
 // NewGeneration returns a Generation with a static list of messages.
 func NewGeneration(m []Message) *Generation {
 	return &Generation{
-		Messages: m,
+		messages: m,
 	}
 }
 
 // NewGenerationWithStream returns a Generation that streams its messages lazily from the given iterator.
 func NewGenerationWithStream(stream MessageIter) *Generation {
 	return &Generation{
-		MessageIter: stream,
+		msgIter: stream,
 	}
 }
 
-// All returns an iterator over the generated messages.
+// Messages returns an iterator over the generated messages.
 // If the generation was streamed, this will lazily consume the stream and append results to Messages.
-// Subsequent calls to All will yield from the fully populated Messages slice.
-func (g *Generation) All() MessageIter {
-	if g.MessageIter != nil {
+// Subsequent calls to Messages will yield from the fully populated Messages slice.
+func (g *Generation) Messages() MessageIter {
+	if g.msgIter != nil {
 		return g.iterStream()
 	}
 	return func(yield func(Message) bool) {
-		for _, v := range g.Messages {
+		for _, v := range g.messages {
 			if !yield(v) {
 				return
 			}
@@ -65,10 +65,11 @@ func (g *Generation) Error() error {
 // This function is only called once; subsequent calls to All will yield from the populated Messages slice.
 func (g *Generation) iterStream() MessageIter {
 	return func(yield func(Message) bool) {
-		seq := g.MessageIter
-		g.MessageIter = nil
+		seq := g.msgIter
+		g.messages = make([]Message, 0, 1)
+		g.msgIter = nil
 		for v := range seq {
-			g.Messages = append(g.Messages, v)
+			// Emit
 			if !yield(v) {
 				return
 			}

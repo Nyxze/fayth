@@ -36,6 +36,26 @@ type Message struct {
 	Properties map[string]any    `json:"properties,omitempty"`
 }
 
+// Combine content of msg to m
+func (m *Message) Combine(msg Message) {
+
+	var tc TextContent
+	for _, v := range m.Contents {
+		if v.Kind() == TextKind {
+			tc = v.(TextContent)
+		}
+	}
+
+	for i, v := range msg.Contents {
+		if v.Kind() == TextKind {
+			text := tc.Text + v.(TextContent).Text
+			m.Contents[i] = TextContent{
+				Text: text,
+			}
+		}
+	}
+}
+
 // Convinient function for creating a new Message
 func NewMessage(role Role, contents ...ContentFunc) Message {
 	msg := Message{
